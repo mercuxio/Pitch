@@ -15,7 +15,7 @@ Requires **macOS 14 or later** on **Apple silicon**.
 
 ## Install
 
-**Download the release.** Grab `Pitch-1.0.0.zip` from
+**Download the release.** Grab `Pitch-1.1.0.zip` from
 [Releases](https://github.com/mercuxio/Pitch/releases), unzip it, and drag
 `Pitch.app` to `/Applications`.
 
@@ -160,7 +160,7 @@ swift test --build-system native
 
 ## Status
 
-Version 1.0.0. The suite is green and the app has been used against real
+Version 1.1.0. The suite is green and the app has been used against real
 hardware, but the full multi-display verification matrix in
 `docs/milestone-3-carry-forward.md` has not been worked through end to end.
 

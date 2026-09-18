@@ -6,6 +6,15 @@ All notable changes to Pitch are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-09-18
+
+### Added
+
+- The dots marking the last three resolutions picked on a display now survive
+  a quit, a reboot and a replug. Displays are matched by their CoreGraphics
+  UUID, falling back to vendor, model and serial from the EDID. When two
+  panels can't be told apart, Pitch shows no dots rather than guess.
+
 ### Fixed
 
 - The app icon no longer sits inside a grey frame on macOS 26 and later. It is
