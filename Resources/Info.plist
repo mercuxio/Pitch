@@ -12,6 +12,8 @@
          installer all still ask for this. -->
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.houlanyit.Pitch</string>
     <key>CFBundlePackageType</key>

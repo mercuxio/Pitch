@@ -139,7 +139,7 @@ Drag `build/Pitch.app` to `/Applications` and launch it. There is no dock icon
 | `Sources/DisplayCore` | Enumerating modes, matching them, applying them, and the revert coordinator. Pure library: no AppKit, no `UserDefaults`, and no user-facing strings. |
 | `Sources/displayctl` | The CLI: hand-rolled argument parsing, rendering, and the terminal confirmation prompt. |
 | `Sources/Pitch` | The menu bar app. Everything is `@MainActor`. |
-| `Tools/GenerateIcon.swift` | Draws the app icon from the same `display` SF Symbol the menu bar uses, so the two cannot drift apart. |
+| `Tools/GenerateIcon.swift` | Writes the app icon as an Icon Composer bundle, `Resources/AppIcon.icon`, from the same `display` SF Symbol the menu bar uses, so the two cannot drift apart. `./scripts/make-icon.sh` compiles it with Xcode's `actool` into the committed `Resources/Assets.car` and `AppIcon.icns`. |
 | `docs/specs/` | The design spec, which is the binding authority for behaviour. |
 
 Nothing in `DisplayCore` reverts on its own — no timer, no queue, no `deinit`
