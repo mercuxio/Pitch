@@ -6,6 +6,27 @@ All notable changes to Pitch are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-10-21
+
+### Added
+
+- A brightness slider for each display, in the panel under the display
+  picker. Apple panels use DisplayServices, third-party monitors use DDC/CI,
+  and anything else falls back to software dimming (labelled "Dimming", with a
+  20% floor). Writes are paced per display so a fast drag ends on the value
+  you stopped at, and each display moves independently.
+- `displayctl brightness list|get|set`, and a Brightness section in
+  `displayctl doctor`.
+- A monitor whose brightness can't be read back remembers the last level you
+  set. Pitch never reapplies it at launch or wake.
+- Software dimming is handed back to the system on quit, only if Pitch dimmed
+  something.
+
+### Known limitations
+
+- The brightness backends have been tested against fakes only. No real write
+  has been verified on hardware yet; see `docs/milestone-3-carry-forward.md`.
+
 ## [1.1.0] — 2026-09-18
 
 ### Added
