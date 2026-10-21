@@ -6,6 +6,7 @@ extension BrightnessRouter {
     /// about which mechanism drives a display.
     public static func system() -> BrightnessRouter {
         BrightnessRouter(backends: [
+            DisplayServicesBackend(calls: DynamicDisplayServices()),
             GammaBackend(tables: CoreGraphicsGamma())
         ])
     }

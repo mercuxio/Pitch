@@ -67,3 +67,24 @@ final class FakeGammaTables: GammaTables, @unchecked Sendable {
         live.removeAll()
     }
 }
+
+/// DisplayServices calls scripted per display. Never touches a panel.
+final class FakeDisplayServices: DisplayServicesCalls, @unchecked Sendable {
+    var isAvailable = true
+    var panels: [CGDirectDisplayID: Float] = [1: 0.5]
+    var getStatus: Int32 = 0
+    var setStatus: Int32 = 0
+
+    private(set) var sets: [(id: CGDirectDisplayID, value: Float)] = []
+
+    func get(_ id: CGDirectDisplayID) -> (status: Int32, value: Float) {
+        guard let value = panels[id] else { return (-1, 0) }
+        return (getStatus, value)
+    }
+
+    func set(_ id: CGDirectDisplayID, _ value: Float) -> Int32 {
+        sets.append((id, value))
+        if setStatus == 0 { panels[id] = value }
+        return setStatus
+    }
+}
