@@ -66,6 +66,27 @@ is milestone-3-shaped work.
 Nothing on this branch has been run against a real display. Every review and every implementer was
 explicitly forbidden from applying a mode, because the machine's owner was not at the keyboard.
 
+### Partly paid, 2026-10-21 — read path only
+
+The first real hardware verification this project has had. Installed build 1.1.0, commit
+`352891e`, two displays attached: `7789:23305:79350` and `19501:57513:0` (serial field zero, so
+tier 2 cannot separate it on its own).
+
+`~/Library/Application Support/Pitch/presets.json`, written 2026-09-14 by the build at `439af52`,
+loaded cleanly under a build that no longer knows the `lastSeenName` key it still contains. After a
+relaunch the recent-resolution dot rendered on both displays. One observation, four facts:
+
+- an old-format file decoded despite two keys this version does not declare;
+- `CGDisplayCreateUUIDFromDisplayID` returned the same UUIDs it had returned a month earlier;
+- the tier walk matched both live displays to their stored entries, including the serial-`0` one;
+- `isReadOnly` is false, so writes are armed — the silent-failure path would have shown no dots at
+  all rather than wrong ones, which is exactly why the dots are the signal worth watching.
+
+**Mode application is still entirely unverified.** The confirm-or-revert countdown — items 1-7
+below, and the property the whole product rests on — has never been observed on hardware. Nothing
+above touches it: recording a recent happens on *selection*, before the countdown resolves either
+way.
+
 Run these by hand, one at a time, while watching the screen, with a phone or a second machine ready
 in case a mode leaves the display unreadable. `displayctl restore` is the escape hatch and can be
 typed blind.
