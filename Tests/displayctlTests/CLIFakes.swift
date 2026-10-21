@@ -135,3 +135,31 @@ final class ClockAdvancingConfirmation: ConfirmationSource, @unchecked Sendable 
         return answer
     }
 }
+
+/// A scripted `BrightnessBackend`; see the note at the top of this file about
+/// why it is duplicated from the DisplayCore tests.
+final class CLIFakeBrightnessBackend: BrightnessBackend, @unchecked Sendable {
+    let method: BrightnessMethod
+    var probeResult: BrightnessProbe
+    var storedLevel: BrightnessLevel?
+
+    private(set) var writes: [(level: BrightnessLevel, id: CGDirectDisplayID)] = []
+
+    init(
+        _ method: BrightnessMethod,
+        probe: BrightnessProbe = .supported(readable: true),
+        level: BrightnessLevel? = nil
+    ) {
+        self.method = method
+        self.probeResult = probe
+        self.storedLevel = level
+    }
+
+    func probe(_ id: CGDirectDisplayID) -> BrightnessProbe { probeResult }
+    func level(for id: CGDirectDisplayID) throws -> BrightnessLevel? { storedLevel }
+
+    func setLevel(_ level: BrightnessLevel, for id: CGDirectDisplayID) throws {
+        writes.append((level, id))
+        storedLevel = level
+    }
+}

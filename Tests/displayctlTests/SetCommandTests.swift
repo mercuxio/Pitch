@@ -305,7 +305,7 @@ private func coordinator(
 // MARK: - doctor
 
 @Test func doctorReportsTheHiDPIConstantAndTheModeCounts() throws {
-    let report = try Doctor.report(enumerator: fixture())
+    let report = try Doctor.report(enumerator: fixture(), brightness: BrightnessRouter(backends: []))
 
     #expect(report.contains("kCGDisplayResolution"))
     #expect(report.contains("3 modes"))
@@ -319,7 +319,8 @@ private func coordinator(
 
 @Test func doctorWarnsWhenNoHiDPIModesAreVisibleAtAll() throws {
     // The exact symptom of the spec §4.1 constant regression.
-    let report = try Doctor.report(enumerator: fixture(current: native, modes: [native]))
+    let report = try Doctor.report(
+        enumerator: fixture(current: native, modes: [native]), brightness: BrightnessRouter(backends: []))
 
     #expect(report.contains("no HiDPI modes"))
 }

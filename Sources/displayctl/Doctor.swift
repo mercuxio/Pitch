@@ -9,7 +9,10 @@ import DisplayCore
 /// warning, just a wrong answer. On a machine you cannot inspect, this report
 /// is how you find out.
 public enum Doctor {
-    public static func report(enumerator: DisplayEnumerating) throws -> String {
+    public static func report(
+        enumerator: DisplayEnumerating,
+        brightness router: BrightnessRouter = .system()
+    ) throws -> String {
         var lines: [String] = []
 
         lines.append("displayctl doctor")
@@ -50,6 +53,18 @@ public enum Doctor {
             lines.append("WARNING: no HiDPI modes on any display. On a Retina or scaled")
             lines.append("         external display this means enumeration is broken —")
             lines.append("         see the HiDPI enumeration key above.")
+        }
+
+        // Probes only: nothing here writes to a display or a monitor.
+        lines.append("")
+        lines.append("Brightness")
+        for (offset, id) in try enumerator.onlineDisplayIDs().enumerated() {
+            let name = try enumerator.device(for: id).localizedName
+            let route = router.route(for: id)
+            let how = route.map {
+                Renderer.methodName($0.method) + ($0.readable ? "" : ", write-only")
+            } ?? "no control available"
+            lines.append("  [\(offset + 1)] \(name): \(how)")
         }
 
         return lines.joined(separator: "\n")

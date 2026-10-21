@@ -54,9 +54,27 @@ public struct SetOptions: Equatable, Sendable {
     }
 }
 
+public struct BrightnessSetOptions: Equatable, Sendable {
+    /// 0...100, as typed.
+    public var percent: Double
+    public var displayIndex: Int?
+
+    public init(percent: Double, displayIndex: Int? = nil) {
+        self.percent = percent
+        self.displayIndex = displayIndex
+    }
+}
+
+public enum BrightnessCommand: Equatable, Sendable {
+    case list
+    case get(displayIndex: Int?)
+    case set(BrightnessSetOptions)
+}
+
 public enum Command: Equatable, Sendable {
     case list(ListOptions)
     case set(SetOptions)
+    case brightness(BrightnessCommand)
     case restore
     case doctor
     case help
@@ -71,6 +89,7 @@ public enum ArgumentParser {
         case "--help", "-h", "help": return .help
         case "list": return .list(try parseList(rest))
         case "set": return .set(try parseSet(rest))
+        case "brightness": return .brightness(try parseBrightness(rest))
         case "restore":
             try requireNoArguments(rest, for: "restore")
             return .restore
@@ -107,6 +126,60 @@ public enum ArgumentParser {
             index += 1
         }
         return options
+    }
+
+    private static func parseBrightness(_ rest: [String]) throws -> BrightnessCommand {
+        guard let sub = rest.first else {
+            throw ParseError("'brightness' needs list, get or set — try 'displayctl --help'")
+        }
+        let args = Array(rest.dropFirst())
+
+        switch sub {
+        case "list":
+            try requireNoArguments(args, for: "brightness list")
+            return .list
+        case "get":
+            return .get(displayIndex: try parseDisplayOnly(args, for: "brightness get"))
+        case "set":
+            guard let level = args.first else {
+                throw ParseError(
+                    "'brightness set' needs a level from 0 to 100, e.g. 'displayctl brightness set 60'")
+            }
+            let percent = try parsePercent(level)
+            let index = try parseDisplayOnly(Array(args.dropFirst()), for: "brightness set")
+            return .set(BrightnessSetOptions(percent: percent, displayIndex: index))
+        default:
+            throw ParseError("unknown brightness command '\(sub)' — expected list, get or set")
+        }
+    }
+
+    /// Verbs whose only option is `--display N`.
+    private static func parseDisplayOnly(_ rest: [String], for verb: String) throws -> Int? {
+        var display: Int?
+        var seen: [String: String] = [:]
+        var index = 0
+        while index < rest.count {
+            try markSeen(rest[index], canonical: rest[index], in: &seen, for: verb)
+            switch rest[index] {
+            case "--display":
+                display = try value(rest, after: &index, flag: "--display")
+            default:
+                throw ParseError("unexpected argument '\(rest[index])' for '\(verb)'")
+            }
+            index += 1
+        }
+        return display
+    }
+
+    /// `60`, `60%` and `12.5` are all fine. Out of range is rejected rather than
+    /// clamped: a typo of `600` should not quietly mean "full". `nan` and `inf`
+    /// fall out of the same two comparisons, which are false for both.
+    private static func parsePercent(_ text: String) throws -> Double {
+        let bare = text.hasSuffix("%") ? String(text.dropLast()) : text
+        guard let percent = Double(bare), percent >= 0, percent <= 100 else {
+            throw ParseError("'\(text)' is not a brightness level — expected 0 to 100, e.g. 60")
+        }
+        return percent
     }
 
     private static func parseSet(_ rest: [String]) throws -> SetOptions {

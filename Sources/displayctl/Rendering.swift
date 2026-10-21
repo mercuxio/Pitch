@@ -81,6 +81,54 @@ public enum Renderer {
         return String(decoding: data, as: UTF8.self)
     }
 
+    static func percent(_ level: BrightnessLevel) -> String {
+        let value = level.value * 100
+        return value == value.rounded() ? "\(Int(value))%" : String(format: "%.1f%%", value)
+    }
+
+    static func methodName(_ method: BrightnessMethod) -> String {
+        switch method {
+        case .appleDisplay: return "Apple display"
+        case .ddc: return "monitor hardware (DDC/CI)"
+        case .gamma: return "software dimming"
+        }
+    }
+
+    static func renderBrightnessList(_ rows: [BrightnessRow]) -> String {
+        rows.map { row in
+            let head = "[\(row.index)] \(row.name)"
+            guard let route = row.route else { return "\(head)  no brightness control" }
+
+            var parts = [head, methodName(route.method)]
+            if !route.readable {
+                parts.append("write-only")
+            } else if let level = row.level {
+                parts.append(percent(level))
+            }
+            return parts.joined(separator: "  ")
+        }
+        .joined(separator: "\n")
+    }
+
+    static func renderBrightnessSet(
+        index: Int, name: String, method: BrightnessMethod,
+        requested: Double, applied: BrightnessLevel
+    ) -> String {
+        var text = "[\(index)] \(name): brightness set to \(percent(applied)) via \(methodName(method))."
+        if applied.value != requested {
+            text += " That is the lowest this method goes; \(percent(BrightnessLevel(requested))) was asked for."
+        }
+        return text
+    }
+
+    static func describe(_ error: BrightnessCommandError) -> String {
+        switch error {
+        case .softwareDimmingDoesNotOutliveTheCommand(let index):
+            return "display \(index) can only be dimmed in software, and that does not outlast "
+                + "this command — use the Pitch app for it"
+        }
+    }
+
     static func describeMode(_ mode: DisplayMode) -> String {
         var text = "\(mode.pointWidth) x \(mode.pointHeight)"
         if mode.isHiDPI { text += " (\(mode.pixelWidth) x \(mode.pixelHeight) HiDPI)" }

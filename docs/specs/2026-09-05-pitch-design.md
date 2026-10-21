@@ -813,6 +813,14 @@ stored level at launch or wake.
 - **Unattended rule.** `displayctl brightness set` joins `set` and `restore` as
   forbidden when the machine's owner is not at the keyboard. `brightness list`,
   `brightness get` and `doctor` are read-only and safe.
+- **`displayctl brightness` surface.** `list` and `get` print each display's method and,
+  when it can be read, its level; `set LEVEL [--display N]` takes 0-100 (a trailing `%`
+  is allowed) and rejects anything outside that range rather than clamping it. Two
+  honest gaps: a write-only display prints `write-only` instead of a level, and a gamma
+  display prints no level at all, because gamma has no hardware to ask and a fresh
+  process would report 100% whatever is on screen. `set` **refuses** a gamma display:
+  the colour table is released when the setting process exits, so a one-shot command
+  would dim the screen and immediately undo itself. Software dimming is the app's job.
 
 ### 18.7 Layering
 

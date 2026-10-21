@@ -9,6 +9,9 @@ System Settings hides.
 USAGE
   displayctl list [--display N] [--all] [--json]
   displayctl set WIDTHxHEIGHT [options]
+  displayctl brightness list
+  displayctl brightness get [--display N]
+  displayctl brightness set LEVEL [--display N]
   displayctl restore
   displayctl doctor
 
@@ -27,6 +30,13 @@ SET
   --permanent    keep the mode across logout and reboot ('restore' cannot undo this)
   --yes, -y      skip the confirmation countdown
   --timeout N    seconds to wait for confirmation (default 15)
+
+BRIGHTNESS
+  list           each display and the mechanism that would drive it (read-only)
+  get            one display's mechanism and level (read-only)
+  set LEVEL      0 to 100. Changes the screen — and a DDC write persists in the
+                 monitor after this command exits. Software dimming is refused
+                 here: it does not outlast the command.
 
 RESTORE
   Returns every display to the system's saved configuration. This is the
@@ -110,15 +120,24 @@ func resolveDisplay(
     index: Int?,
     enumerator: DisplayEnumerating
 ) throws -> CGDirectDisplayID {
+    try resolveDisplayWithIndex(index: index, enumerator: enumerator).id
+}
+
+/// As `resolveDisplay`, but also returns the 1-based index, from the same read
+/// of the display list so the two can never describe different lists.
+func resolveDisplayWithIndex(
+    index: Int?,
+    enumerator: DisplayEnumerating
+) throws -> (index: Int, id: CGDirectDisplayID) {
     let ids = try enumerator.onlineDisplayIDs()
     guard let first = ids.first else {
         throw ParseError("no displays are connected")
     }
-    guard let index else { return first }
+    guard let index else { return (1, first) }
     guard index >= 1, index <= ids.count else {
         throw ParseError(noSuchDisplayIndexMessage(index, connectedCount: ids.count))
     }
-    return ids[index - 1]
+    return (index, ids[index - 1])
 }
 
 func runSet(
