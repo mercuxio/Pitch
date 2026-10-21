@@ -32,4 +32,10 @@ public enum DisplayError: Error, Equatable, Sendable {
     /// cannot be safely rewritten, and overwriting it would destroy whatever
     /// the newer version stored.
     case storeSchemaUnsupported(version: Int)
+
+    /// No brightness backend can drive this display (spec §18.2).
+    case brightnessUnsupported(CGDirectDisplayID)
+
+    /// A backend accepted the display but the write itself failed.
+    case brightnessWriteFailed(CGDirectDisplayID, code: Int32)
 }

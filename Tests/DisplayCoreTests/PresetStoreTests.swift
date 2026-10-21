@@ -122,3 +122,33 @@ private func stored(uuid: String = "A1") -> StoredDisplay {
     #expect(store.entry(matching: mine)?.recents == [signature])
     #expect(store.entry(matching: other) == nil)
 }
+
+@Test func brightnessSurvivesASaveAndLoad() throws {
+    try withTemporaryDirectory { directory in
+        let url = directory.appendingPathComponent("presets.json")
+        let original = PresetStore(displays: [
+            StoredDisplay(
+                identity: DisplayIdentity(uuid: "A1", hardwareKey: "1:2:3"), brightness: 0.35)
+        ])
+
+        try FilePresetStore(url: url).save(original)
+
+        #expect(try FilePresetStore(url: url).load().displays.first?.brightness == 0.35)
+    }
+}
+
+@Test func anEntryWrittenBeforeBrightnessExistedDecodesWithNone() throws {
+    let json = Data(#"{"identity":{"hardwareKey":"1:2:3"},"recents":[]}"#.utf8)
+
+    let decoded = try JSONDecoder().decode(StoredDisplay.self, from: json)
+
+    #expect(decoded.brightness == nil)
+}
+
+@Test func anEntryWithNoBrightnessWritesNoKeyForOlderBuildsToTripOver() throws {
+    let entry = StoredDisplay(identity: DisplayIdentity(uuid: "A1", hardwareKey: "1:2:3"))
+
+    let text = String(decoding: try JSONEncoder().encode(entry), as: UTF8.self)
+
+    #expect(!text.contains("brightness"))
+}

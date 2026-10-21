@@ -32,6 +32,10 @@ enum ErrorText {
             // reading it, and the only useful move is the same either way.
             return "Pitch's saved settings were written by a newer version and "
                 + "cannot be read. Updating Pitch will restore them."
+        case .brightnessUnsupported:
+            return "Brightness can't be adjusted on this display."
+        case .brightnessWriteFailed:
+            return "The display didn't accept the brightness change."
         }
     }
 

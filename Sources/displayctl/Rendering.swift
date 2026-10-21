@@ -147,6 +147,10 @@ public enum Renderer {
         case .storeSchemaUnsupported(let version):
             return "the saved presets file is in format \(version), which this version does not "
                 + "understand — update the app, or delete the file to start over"
+        case .brightnessUnsupported(let id):
+            return "no brightness control is available for display \(id)"
+        case .brightnessWriteFailed(let id, let code):
+            return "the brightness change on display \(id) failed (error \(code))"
         }
     }
 }

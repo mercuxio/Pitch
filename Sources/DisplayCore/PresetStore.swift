@@ -12,20 +12,29 @@ public struct StoredDisplay: Codable, Equatable, Sendable {
     /// Newest first, capped by the caller.
     public var recents: [ModeSignature]
 
-    public init(identity: DisplayIdentity, recents: [ModeSignature] = []) {
+    /// The last level Pitch set (spec §18.3). Optional, so a file written before
+    /// brightness existed decodes as `nil` and an older build ignores the key.
+    public var brightness: Double?
+
+    public init(
+        identity: DisplayIdentity, recents: [ModeSignature] = [], brightness: Double? = nil
+    ) {
         self.identity = identity
         self.recents = recents
+        self.brightness = brightness
     }
 
     enum CodingKeys: String, CodingKey {
         case identity
         case recents
+        case brightness
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         identity = try container.decode(DisplayIdentity.self, forKey: .identity)
         recents = try container.decodeIfPresent([ModeSignature].self, forKey: .recents) ?? []
+        brightness = try container.decodeIfPresent(Double.self, forKey: .brightness)
     }
 }
 

@@ -721,12 +721,17 @@ backlight through IOKit, which on Apple silicon sits behind the display coproces
 ### 18.3 Domain model and persistence
 
 ```swift
-public struct BrightnessLevel: Equatable, Sendable {   // clamped to 0...1
+public struct BrightnessLevel: Equatable, Sendable {   // clamped to 0...1; non-finite → 1
     public let value: Double
 }
 
 public enum BrightnessMethod: Equatable, Sendable {
-    case appleDisplay, ddc(readable: Bool), gamma
+    case appleDisplay, ddc, gamma      // `floor` per case, §18.6
+}
+
+public enum BrightnessProbe: Equatable, Sendable {
+    case unsupported
+    case supported(readable: Bool)     // readability is per display, so it lives here
 }
 
 public protocol BrightnessBackend: Sendable {
@@ -756,8 +761,11 @@ stored level at launch or wake.
 ### 18.4 DDC
 
 - **Packet construction is a pure function.** Build and parse MCCS get/set VCP
-  frames, including the checksum, in `DisplayCore` with no I/O, and test them against
-  recorded packets.
+  frames, including the checksum, in `DisplayCore` with no I/O. Until the spike has
+  recorded real traffic the tests use frames worked out by hand from the MCCS layout;
+  recorded ones replace them. The reply parser accepts the frame with or without its
+  leading `0x6E` source byte (which one `IOAVServiceReadI2C` returns is a spike
+  question) and reports a bad checksum instead of trusting the value.
 - **The maximum is read, never assumed.** A monitor reports its own maximum for
   feature `0x10`; it is not always 100. Level is `raw / reported max`.
 - **Display-to-service mapping is the hard part** and is a spike, not a decision. Two
@@ -810,7 +818,8 @@ stored level at launch or wake.
 
 Unchanged dependency rule: the app depends on the core, never the reverse.
 `DisplayCore` holds `BrightnessLevel`, the backend protocol, `BrightnessRouter`, the
-DDC packet codec and the write coalescer, and contains **no user-facing strings**.
+DDC packet codec and the write throttle (`WriteThrottle`, a pure value type paced by
+the injected clock), and contains **no user-facing strings**.
 
 `BrightnessBridge.swift` is the only file that touches `DisplayServices` or
 `IOAVService` symbols, with `DDCRegistry.swift` for the IOKit traversal. Every symbol
@@ -833,7 +842,7 @@ the only surface the failure touches.
 
 ### 18.9 Testing
 
-**Unit, no hardware:** DDC packet build/parse and checksum against recorded frames;
+**Unit, no hardware:** DDC packet build/parse and checksum against hand-derived frames;
 raw↔level normalisation with a maximum other than 100; router order, fall-through,
 caching and invalidation, driven by fake backends; floors; the coalescer under a fake
 clock (latest-wins, no backlog); `StoredDisplay` decoding with and without
