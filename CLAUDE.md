@@ -40,6 +40,10 @@ this machine is not at the keyboard, a mode their monitor cannot show leaves the
 the prompt that would undo it. `swift build`, `swift test`, `displayctl list`, `displayctl
 doctor`, `displayctl --help`, and invocations that fail during argument parsing are safe.
 
+Brightness joins this rule once it exists (spec §18): `displayctl brightness set` and any real
+backend write change the screen, and a DDC write persists in the monitor after the process exits.
+`brightness list`, `brightness get` and `doctor` only probe and read, and are safe.
+
 Manual hardware verification is owed by a human at the keyboard; it has never been run. See
 `docs/milestone-3-carry-forward.md`.
 
