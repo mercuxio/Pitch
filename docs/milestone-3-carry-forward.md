@@ -114,3 +114,51 @@ Then the write path, which actually changes the screen:
 6. With two displays attached, repeat 1-3 with `--display 2` and confirm the *other* screen changed.
 7. `displayctl set <resolution> --permanent`, confirm, log out and back in, check it survived. Note
    that `restore` will not undo this one — see item 4 above.
+
+## 8. Brightness hardware verification is owed (spec §18)
+
+Everything under §18 is tested against fakes only. No real gamma, DisplayServices or DDC write has
+ever been issued by Pitch, and nothing on the development machine could have exercised the Apple
+backend: its only display was asleep, and a DDC read spike returned `FA`×12 with Vorssaint holding
+the same service. Treat each line below as unobserved.
+
+**A write changes the screen, and a DDC write persists in the monitor after Pitch exits.** Do these
+with someone at the keyboard, a known-good brightness to return to, and the monitor's own OSD within
+reach. `displayctl brightness list|get` and `displayctl doctor` only probe and read, so start there:
+
+```bash
+.build/debug/displayctl brightness list     # each display names a method; a built-in is not "gamma"
+.build/debug/displayctl brightness get      # readable displays report a level; write-only ones say so
+.build/debug/displayctl doctor              # the Brightness section agrees with the two above
+```
+
+Then, one backend at a time, `displayctl brightness set <level> [--display N]` and watch the panel:
+
+1. **Apple panel (DisplayServices).** The backlight itself moves. The slider's floor is 5%, not 0.
+2. **DDC monitor.** Quit Vorssaint and any other DDC tool first — two owners of the service fight.
+   The backlight moves, the floor is 5%, and the level survives quitting Pitch (that is the monitor
+   holding it, not Pitch). Record what the monitor replies when it is awake: this is the unresolved
+   `FA`×12 question, and it decides whether the row is readable or write-only.
+3. **Gamma.** Use a display with neither of the above. The row reads "Dimming", the tooltip says it
+   does not deepen blacks, and the floor is 20% — at 0 the screen would be unreadable.
+4. **Read-back offset and settle.** On a DDC display, set a level, wait, `brightness get`. The
+   value should match within a step. If it lags, the settle delay is too short; if it is off by a
+   constant, the read offset is wrong.
+
+Slider behaviour in the panel:
+
+5. A fast drag ends on the value the pointer stopped at, however slow the monitor is (latest wins).
+6. Two displays move independently; dragging one never moves the other.
+7. A write-only DDC monitor shows its last-set level after relaunch, and Pitch does **not** reapply
+   it on launch or wake (§18.3).
+8. A failing display shows a disabled row with an explanatory tooltip and no alert. Unplug it
+   mid-drag to provoke this.
+9. Dock/undock, and sleep/wake: rows reappear within about a second, on the right display, with no
+   stale level from the monitor that used to hold that ID.
+10. Changing resolution on a dimmed display resets software dimming (the reconfiguration restores
+    the system colour tables); the slider should return to full rather than lie.
+11. Quit Pitch while dimmed with gamma: the screen returns to normal. `kill -9` it instead: gamma
+    is released by the OS when the process dies, and DDC/Apple levels stay where they were. Confirm
+    both, since only the first is Pitch's doing.
+12. Another tool's colour adjustment (Night Shift, a calibrated profile) survives a quit when Pitch
+    never dimmed anything — the guarded `shutDown` should not touch it.
