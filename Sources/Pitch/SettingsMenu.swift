@@ -33,11 +33,32 @@ final class SettingsMenu: NSObject {
     /// - Parameter displayCount: how many displays are online, which decides
     ///   whether there is an arrangement to open at all.
     func show(from gear: NSView, displayCount: Int) {
-        // The point is in the gear's own coordinates, and a view's origin is its
-        // bottom-left, so a small negative y puts the menu's top-left just under
-        // the glyph.
-        menu(displayCount: displayCount)
-            .popUp(positioning: nil, at: NSPoint(x: 0, y: -Self.gap), in: gear)
+        let menu = menu(displayCount: displayCount)
+        guard let window = gear.window else {
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -Self.gap), in: gear)
+            return
+        }
+        // Placed in screen coordinates, because AppKit never lets a menu cover
+        // the screen's edge: given a point with too little room below it, it
+        // slides the whole menu up — over the gear and the pointer, which is
+        // what happened the moment a third item made the menu taller. The panel
+        // hangs from the menu bar and a display with a long mode list makes it
+        // nearly screen-high, so the gear can sit close to the bottom edge.
+        let gearRect = window.convertToScreen(gear.convert(gear.bounds, to: nil))
+        let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? .infinite
+        let origin = Self.origin(gear: gearRect, menuSize: menu.size, visible: visible)
+        menu.popUp(positioning: nil, at: origin, in: nil)
+    }
+
+    /// The menu's top-left corner, in screen coordinates: just under the gear
+    /// when the whole menu fits there, otherwise just above it, so the menu
+    /// never covers the glyph it dropped out of.
+    static func origin(gear: NSRect, menuSize: NSSize, visible: NSRect) -> NSPoint {
+        let below = gear.minY - gap
+        if below - menuSize.height >= visible.minY {
+            return NSPoint(x: gear.minX, y: below)
+        }
+        return NSPoint(x: gear.minX, y: gear.maxY + gap + menuSize.height)
     }
 
     /// Built fresh on every click, because `LaunchAtLogin` is read from the
@@ -113,7 +134,7 @@ final class SettingsMenu: NSObject {
     static let updatesTitle = "Check for Updates Automatically"
 
     /// Breathing room between the gear and the menu that drops out of it.
-    private static let gap: CGFloat = 4
+    static let gap: CGFloat = 4
 
     /// The version line at the bottom: information, not a command.
     ///

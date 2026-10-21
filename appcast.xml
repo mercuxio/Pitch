@@ -3,6 +3,15 @@
   <channel>
     <title>Pitch</title>
     <item>
+      <title>Pitch 1.2.2</title>
+      <pubDate>Wed, 21 Oct 2026 12:59:54 +0000</pubDate>
+      <sparkle:version>5</sparkle:version>
+      <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/mercuxio/Pitch/releases/tag/v1.2.2</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/mercuxio/Pitch/releases/download/v1.2.2/Pitch-1.2.2.zip" type="application/octet-stream" sparkle:edSignature="e97E73braJo/Xs8yFtsyUJ7L0biDMvKv8+jnslShzeZwVtzozQAKXE4ihD/2UebHcdgS0FLKS+2NbzQ0FeYrCQ==" length="2968476"/>
+    </item>
+    <item>
       <title>Pitch 1.2.1</title>
       <pubDate>Wed, 21 Oct 2026 12:57:01 +0000</pubDate>
       <sparkle:version>4</sparkle:version>

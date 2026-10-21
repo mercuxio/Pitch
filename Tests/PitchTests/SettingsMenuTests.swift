@@ -127,4 +127,25 @@ struct SettingsMenuTests {
         let restoreIsEnabled = restore?.isEnabled ?? false
         #expect(restoreIsEnabled)
     }
+
+    @Test func theMenuDropsBelowTheGearWhenItFitsThere() {
+        let gear = NSRect(x: 100, y: 500, width: 20, height: 20)
+        let origin = SettingsMenu.origin(
+            gear: gear, menuSize: NSSize(width: 200, height: 100),
+            visible: NSRect(x: 0, y: 0, width: 1000, height: 800))
+
+        #expect(origin == NSPoint(x: 100, y: 500 - SettingsMenu.gap))
+    }
+
+    @Test func theMenuOpensAboveTheGearWhenThereIsNoRoomBelow() {
+        // AppKit would otherwise shift it up itself, over the gear and the
+        // pointer. Above means its bottom edge sits just over the glyph.
+        let gear = NSRect(x: 100, y: 60, width: 20, height: 20)
+        let size = NSSize(width: 200, height: 100)
+        let origin = SettingsMenu.origin(
+            gear: gear, menuSize: size, visible: NSRect(x: 0, y: 0, width: 1000, height: 800))
+
+        #expect(origin.y - size.height == gear.maxY + SettingsMenu.gap)
+        #expect(origin.y - size.height >= gear.maxY)
+    }
 }

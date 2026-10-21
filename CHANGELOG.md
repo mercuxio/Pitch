@@ -6,6 +6,13 @@ All notable changes to Pitch are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.2.2] — 2026-10-21
+
+### Fixed
+
+- The gear menu opened over the gear and the pointer when the panel was tall
+  enough to leave no room below it. It now opens above the gear in that case.
+
 ## [1.2.1] — 2026-10-21
 
 ### Added
