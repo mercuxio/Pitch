@@ -6,6 +6,24 @@ All notable changes to Pitch are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-10-21
+
+### Added
+
+- Automatic updates, using Sparkle as Sniffcast does. A **Check for Updates
+  Automatically** item with a tick sits under Start at Login in the gear menu.
+  It is on by default; untick it to stop Pitch checking. Updates are signed
+  with an EdDSA key and offered in Sparkle's own window, never installed
+  silently.
+
+### Fixed
+
+- The brightness slider's unfilled track was invisible on the menu's blur
+  material. Both parts of the track are now drawn, with the fill in the same
+  colour as the checkmarks.
+- A monitor that answers a DDC brightness read with the DDC/CI null-message
+  header (the LG UltraFine does) is no longer sent to software dimming.
+
 ## [1.2.0] — 2026-10-21
 
 ### Added

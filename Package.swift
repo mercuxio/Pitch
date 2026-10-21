@@ -11,11 +11,19 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-testing.git", from: "0.10.0"),
+        // Linked by the Pitch app target only. `DisplayCore` stays pure and
+        // `displayctl` — the blind-recovery path — never loads an updater.
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
     ],
     targets: [
         .target(name: "DisplayCore"),
         .executableTarget(name: "displayctl", dependencies: ["DisplayCore"]),
-        .executableTarget(name: "Pitch", dependencies: ["DisplayCore"]),
+        .executableTarget(
+            name: "Pitch",
+            dependencies: [
+                "DisplayCore",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ]),
         .testTarget(
             name: "DisplayCoreTests",
             dependencies: [

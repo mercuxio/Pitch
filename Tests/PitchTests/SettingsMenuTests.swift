@@ -10,9 +10,49 @@ import Testing
 /// that quietly inverts during a refactor and is never noticed — nobody
 /// unplugs a monitor to check a menu.
 @MainActor
+final class FakeUpdater: UpdateChecking {
+    var automaticallyChecks: Bool
+    init(automaticallyChecks: Bool = false) { self.automaticallyChecks = automaticallyChecks }
+}
+
+@MainActor
 struct SettingsMenuTests {
-    private func settings(arrange: @escaping () -> Void = {}) -> SettingsMenu {
-        SettingsMenu(restore: {}, arrange: arrange)
+    private func settings(
+        arrange: @escaping () -> Void = {}, updater: FakeUpdater = FakeUpdater()
+    ) -> SettingsMenu {
+        SettingsMenu(restore: {}, arrange: arrange, updater: updater)
+    }
+
+    private func updatesItem(in menu: NSMenu) -> NSMenuItem? {
+        menu.items.first { $0.title == SettingsMenu.updatesTitle }
+    }
+
+    @Test func theUpdateItemSitsDirectlyBelowStartAtLogin() {
+        let titles = settings().menu(displayCount: 1).items.map(\.title)
+        let login = titles.firstIndex(of: "Start at Login")
+        let updates = titles.firstIndex(of: SettingsMenu.updatesTitle)
+        #expect(login != nil)
+        #expect(updates == login.map { $0 + 1 })
+    }
+
+    @Test func theUpdateItemIsTickedExactlyWhenAutomaticChecksAreOn() {
+        for on in [true, false] {
+            let owner = settings(updater: FakeUpdater(automaticallyChecks: on))
+            let state = updatesItem(in: owner.menu(displayCount: 1))?.state
+            #expect(state == (on ? .on : .off))
+        }
+    }
+
+    @Test func choosingTheUpdateItemFlipsTheSwitchBothWays() {
+        let updater = FakeUpdater(automaticallyChecks: false)
+        let owner = settings(updater: updater)
+        let item = updatesItem(in: owner.menu(displayCount: 1))
+
+        _ = item.flatMap { $0.target?.perform($0.action!) }
+        #expect(updater.automaticallyChecks)
+
+        _ = item.flatMap { $0.target?.perform($0.action!) }
+        #expect(!updater.automaticallyChecks)
     }
 
     @Test func oneDisplayIsNotOfferedAnArrangement() {

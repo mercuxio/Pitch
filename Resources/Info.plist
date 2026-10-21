@@ -19,15 +19,27 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.2.0</string>
+    <string>1.2.1</string>
     <key>CFBundleVersion</key>
-    <string>3</string>
+    <string>4</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <!-- Menu bar agent: no dock icon, no app switcher entry. -->
     <key>LSUIElement</key>
+    <true/>
+    <!-- Sparkle. The feed is the appcast.xml on main; every update is checked
+         against the EdDSA public key below, whose private half lives in the
+         login Keychain and never in the repository (spec §15). -->
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/mercuxio/Pitch/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>10VIpTMQm9DmV5p6kNgsHBI3Fwd06CSUKhUM8HMhbis=</string>
+    <!-- Start with automatic checks on, so Sparkle does not interrupt a menu
+         bar app with its own first-run permission prompt. The gear's tick
+         turns them off. -->
+    <key>SUEnableAutomaticChecks</key>
     <true/>
 </dict>
 </plist>

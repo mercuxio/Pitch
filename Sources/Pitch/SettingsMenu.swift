@@ -2,24 +2,30 @@ import AppKit
 
 /// The gear's dropdown.
 ///
-/// Pitch has two settings, which is not a window's worth. A dropdown keeps them
+/// Pitch has three settings, which is not a window's worth. A dropdown keeps them
 /// where the click already is — the same shape InOut's gear uses — and costs the
 /// user no context switch to a separate dialog and back.
 @MainActor
 final class SettingsMenu: NSObject {
     private let restore: () -> Void
     private let arrange: () -> Void
+    private let updater: any UpdateChecking
 
     /// - Parameter restore: runs `Restore Defaults`.
     /// - Parameter arrange: opens Display Arrangement.
+    /// - Parameter updater: owns the automatic-update switch.
     ///
     /// Both are injected rather than reached for, so this menu never touches a
     /// display itself and never brings another app forward: the controller owns
     /// every write to the hardware, and it is the only thing that knows the
     /// floating panel has to be closed before something else takes the screen.
-    init(restore: @escaping () -> Void, arrange: @escaping () -> Void) {
+    init(
+        restore: @escaping () -> Void, arrange: @escaping () -> Void,
+        updater: any UpdateChecking
+    ) {
         self.restore = restore
         self.arrange = arrange
+        self.updater = updater
     }
 
     /// - Parameter gear: the button this drops out of. It stays on screen, and
@@ -78,6 +84,14 @@ final class SettingsMenu: NSObject {
         launch.toolTip = LaunchAtLogin.note
         menu.addItem(launch)
 
+        // Read from the updater on every build, like Start at Login: Sparkle
+        // persists the choice itself, so nothing here can drift from it.
+        let updates = NSMenuItem(
+            title: Self.updatesTitle, action: #selector(toggleUpdates), keyEquivalent: "")
+        updates.target = self
+        updates.state = updater.automaticallyChecks ? .on : .off
+        menu.addItem(updates)
+
         let restoreItem = NSMenuItem(
             title: "Restore Defaults", action: #selector(restorePressed), keyEquivalent: "")
         restoreItem.target = self
@@ -94,6 +108,9 @@ final class SettingsMenu: NSObject {
     /// The title of the item that opens System Settings, shared with the test
     /// that checks when it appears.
     static let arrangementTitle = "Display Arrangement…"
+
+    /// The automatic-update item's title, shared with the tests that find it.
+    static let updatesTitle = "Check for Updates Automatically"
 
     /// Breathing room between the gear and the menu that drops out of it.
     private static let gap: CGFloat = 4
@@ -140,6 +157,10 @@ final class SettingsMenu: NSObject {
             NSApp.activate(ignoringOtherApps: true)
             alert.runModal()
         }
+    }
+
+    @objc private func toggleUpdates() {
+        updater.automaticallyChecks.toggle()
     }
 
     @objc private func restorePressed() {

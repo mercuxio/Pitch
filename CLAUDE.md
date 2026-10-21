@@ -18,9 +18,15 @@ swift test --build-system native
 
 swift-testing comes in as an SPM dependency deliberately. SwiftPM emits a deprecation warning
 advising its removal; **that warning is wrong here** — removing the dependency breaks the suite.
-It is the only dependency, and the only one that should ever be added: `displayctl` is the
-blind-recovery path, so its argument parser stays hand-rolled rather than taking
-`swift-argument-parser`.
+It is the only *test* dependency. Sparkle is the one runtime dependency, linked by the `Pitch`
+app target only (auto-update, same mechanism as Sniffcast); `DisplayCore` and `displayctl` never
+link it. `displayctl` is the blind-recovery path, so its argument parser stays hand-rolled rather
+than taking `swift-argument-parser`.
+
+Releases are Sparkle-signed: `scripts/package-app.sh`, zip with `ditto -c -k --keepParent`, then
+`scripts/appcast.sh` (signs with the EdDSA key in the login Keychain, the same key as Sniffcast)
+and commit `appcast.xml` — installed copies read it from `main`. Every release needs a new
+`CFBundleVersion` and its own `vX.Y.Z` GitHub release carrying the zip.
 
 `@testable import` of an `executableTarget` links and runs, which is how `displayctl` is tested.
 

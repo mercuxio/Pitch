@@ -35,7 +35,9 @@ final class StatusMenuController: NSObject {
     private let confirmation = ConfirmationPanel()
     private lazy var settings = SettingsMenu(
         restore: { [weak self] in self?.restoreDefaults() },
-        arrange: { [weak self] in self?.openArrangement() })
+        arrange: { [weak self] in self?.openArrangement() },
+        updater: updater)
+    private let updater = Updater()
 
     /// The same page InOut's footer points at — one tip jar for both apps.
     private static let coffeeURL = URL(string: "https://buymeacoffee.com/benjamintan")!
