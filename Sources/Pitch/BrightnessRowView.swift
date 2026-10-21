@@ -1,5 +1,33 @@
 import AppKit
 
+/// A slider whose whole track stays visible on the panel's blur material.
+///
+/// The stock track draws its unfilled part in a faint translucent grey that the
+/// `.menu` material swallows, leaving only the fill on screen.
+private final class MenuSliderCell: NSSliderCell {
+    override func drawBar(inside rect: NSRect, flipped: Bool) {
+        let radius = rect.height / 2
+        NSColor.labelColor.withAlphaComponent(0.22).setFill()
+        NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+
+        let span = maxValue - minValue
+        guard span > 0 else { return }
+        let fraction = CGFloat((doubleValue - minValue) / span)
+        var filled = rect
+        filled.size.width = rect.width * min(max(fraction, 0), 1)
+        // The checkmark's colour, not the accent: the picker above it is monochrome.
+        (isEnabled ? NSColor.labelColor : NSColor.labelColor.withAlphaComponent(0.35)).setFill()
+        NSBezierPath(roundedRect: filled, xRadius: radius, yRadius: radius).fill()
+    }
+}
+
+private final class MenuSlider: NSSlider {
+    override class var cellClass: AnyClass? {
+        get { MenuSliderCell.self }
+        set {}
+    }
+}
+
 /// One display's brightness slider: a label and a slider on a single line.
 ///
 /// Reports every change as it happens, tagged with whether the user is still
@@ -26,7 +54,7 @@ final class BrightnessRowView: NSView {
 
     init(model: BrightnessRowModel, onChange: @escaping (Double, Phase) -> Void) {
         self.onChange = onChange
-        slider = NSSlider(
+        slider = MenuSlider(
             value: model.value, minValue: model.floor, maxValue: 1, target: nil, action: nil)
         super.init(frame: NSRect(x: 0, y: 0, width: 220, height: Metrics.height))
 
