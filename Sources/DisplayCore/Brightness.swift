@@ -68,4 +68,13 @@ public protocol BrightnessBackend: Sendable {
     func level(for id: CGDirectDisplayID) throws -> BrightnessLevel?
 
     func setLevel(_ level: BrightnessLevel, for id: CGDirectDisplayID) throws
+
+    /// The display configuration changed (replug, wake, resolution change). A
+    /// backend holding state keyed by display ID must drop or reset it: the ID
+    /// may now name a different monitor. Default: nothing to drop.
+    func configurationDidChange()
+}
+
+extension BrightnessBackend {
+    public func configurationDidChange() {}
 }

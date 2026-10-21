@@ -39,10 +39,14 @@ public final class BrightnessRouter: @unchecked Sendable {
         entry(for: id)?.route
     }
 
+    /// Forgets every cached choice and tells each backend the configuration
+    /// changed, so none of them keeps state for an ID that may now be a
+    /// different monitor.
     public func invalidate() {
         lock.lock()
-        defer { lock.unlock() }
         cache.removeAll()
+        lock.unlock()
+        for backend in backends { backend.configurationDidChange() }
     }
 
     /// The live level; `nil` for a write-only display.

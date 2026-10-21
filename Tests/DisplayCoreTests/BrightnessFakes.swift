@@ -36,3 +36,34 @@ final class FakeBrightnessBackend: BrightnessBackend, @unchecked Sendable {
         storedLevel = level
     }
 }
+
+/// Gamma tables held in memory. Never touches a display.
+final class FakeGammaTables: GammaTables, @unchecked Sendable {
+    var drivable: Set<CGDirectDisplayID> = [1]
+    var system = GammaTable(red: [0, 0.5, 1], green: [0, 0.5, 1], blue: [0, 0.5, 1])
+    var applyCode: Int32 = 0
+
+    private(set) var captureCount = 0
+    private(set) var applications: [(id: CGDirectDisplayID, table: GammaTable)] = []
+    private(set) var restoreCount = 0
+    /// What a real display would currently be showing.
+    private(set) var live: [CGDirectDisplayID: GammaTable] = [:]
+
+    func canDrive(_ id: CGDirectDisplayID) -> Bool { drivable.contains(id) }
+
+    func capture(_ id: CGDirectDisplayID) -> GammaTable? {
+        captureCount += 1
+        return live[id] ?? system
+    }
+
+    func apply(_ table: GammaTable, to id: CGDirectDisplayID) -> Int32 {
+        applications.append((id, table))
+        if applyCode == 0 { live[id] = table }
+        return applyCode
+    }
+
+    func restoreSystemSettings() {
+        restoreCount += 1
+        live.removeAll()
+    }
+}
