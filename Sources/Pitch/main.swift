@@ -12,6 +12,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         controller = StatusMenuController()
     }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        controller?.shutDown()
+    }
 }
 
 let app = NSApplication.shared

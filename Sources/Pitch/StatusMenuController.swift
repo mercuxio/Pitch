@@ -74,6 +74,9 @@ final class StatusMenuController: NSObject {
     /// instead, and declines rather than guessing when two displays tie.
     private let recents: RecentsBook
 
+    /// Per-display brightness sliders (spec §18).
+    private let brightness: BrightnessController
+
     init(
         enumerator: DisplayEnumerating = CoreGraphicsEnumerator(),
         configurator: DisplayConfiguring = CoreGraphicsConfigurator(),
@@ -82,6 +85,9 @@ final class StatusMenuController: NSObject {
         self.enumerator = enumerator
         self.configurator = configurator
         self.recents = recents
+        self.brightness = BrightnessController(
+            recents: recents,
+            displayIDs: { [enumerator] in (try? enumerator.onlineDisplayIDs()) ?? [] })
         self.coordinator = RevertCoordinator(configurator: configurator, clock: SystemClock())
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
@@ -93,6 +99,19 @@ final class StatusMenuController: NSObject {
         // opens a menu — the one thing this app can no longer use.
         statusItem.button?.target = self
         statusItem.button?.action = #selector(toggle)
+
+        // A row appearing or changing while the panel is open rebuilds it in
+        // place; closed, the next opening builds it fresh anyway.
+        brightness.onChange = { [weak self] in
+            guard let self, dropdown.isShowing else { return }
+            dropdown.setContent(buildContent())
+        }
+        brightness.warmUp((try? enumerator.onlineDisplayIDs()) ?? [])
+    }
+
+    /// Pitch is quitting: hand back anything software dimming still holds.
+    func shutDown() {
+        brightness.shutDown()
     }
 
     // MARK: - The panel
@@ -105,6 +124,7 @@ final class StatusMenuController: NSObject {
         guard let button = statusItem.button else { return }
         dropdown.setContent(buildContent())
         dropdown.show(under: button, quit: { [weak self] in self?.quit() })
+        if let selectedDisplay { brightness.panelDidOpen(on: selectedDisplay) }
     }
 
     /// Rebuilt every time the panel opens.
@@ -158,6 +178,13 @@ final class StatusMenuController: NSObject {
                     pick: { [weak self] picked in self?.select(picked) }),
                 to: stack)
             Self.addFullWidth(Self.separator(), to: stack)
+
+            // Absent until a backend has been found for this display: the panel
+            // is built on the main thread and must not wait on a probe.
+            if let row = brightness.rowView(for: id) {
+                Self.addFullWidth(row, to: stack)
+                Self.addFullWidth(Self.separator(), to: stack)
+            }
 
             let current = try enumerator.currentMode(for: id)
             let modes = try enumerator.modes(for: id)
@@ -222,6 +249,7 @@ final class StatusMenuController: NSObject {
         guard id != selectedDisplay else { return }
         selectedDisplay = id
         dropdown.setContent(buildContent())
+        brightness.panelDidOpen(on: id)
     }
 
     /// Shown in place of the list when the displays cannot be read at all.
