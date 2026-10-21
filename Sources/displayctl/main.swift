@@ -46,7 +46,8 @@ do {
         print(try runRestore(configurator: CoreGraphicsConfigurator()))
 
     case .doctor:
-        print(try Doctor.report(enumerator: enumerator))
+        let ddc = DDCBackend(links: IOAVServiceLinks())
+        print(try Doctor.report(enumerator: enumerator, ddcDiagnosis: { ddc.diagnose($0) }))
     }
 } catch let error as ParseError {
     fail(error.message)

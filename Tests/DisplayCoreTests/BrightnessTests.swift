@@ -204,6 +204,29 @@ private let replyFor50of100: [UInt8] = [
     #expect(reply.level == BrightnessLevel(0.5))
 }
 
+@Test func aReplyWhoseHeaderIsTheNullMessageStillCarriesItsPayload() throws {
+    // Recorded from the LG on the development machine: `6E 80 BE` is the DDC/CI
+    // null message, but the eight bytes after it are a complete luminance reply
+    // and their checksum is only valid against the ordinary `88 02` header.
+    let recorded: [UInt8] = [
+        0x6E, 0x80, 0xBE, 0x00, 0x10, 0x00, 0x00, 0x64, 0x00, 0x32, 0xF2, 0x00,
+    ]
+
+    let reply = try DDC.parseReply(recorded, expecting: DDC.luminance)
+
+    #expect(reply.current == 50)
+    #expect(reply.maximum == 100)
+    #expect(reply.checksumValid)
+}
+
+@Test func aNullMessageWithNothingBehindItIsNotAReply() {
+    let empty: [UInt8] = [0x6E, 0x80, 0xBE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+
+    #expect(throws: DDC.FrameError.wrongFeature(0x00)) {
+        try DDC.parseReply(empty, expecting: DDC.luminance)
+    }
+}
+
 @Test func aMaximumOtherThanOneHundredIsHonoured() throws {
     // Max 255, current 128. The checksum is wrong on purpose here; the point is
     // the arithmetic, and `checksumValid` is asserted separately below.

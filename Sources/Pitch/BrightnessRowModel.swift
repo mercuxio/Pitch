@@ -13,6 +13,12 @@ struct BrightnessRowModel: Equatable {
     let value: Double
     let isEnabled: Bool
 
+    /// The slider's value as the reader sees it. The slider's own range starts at
+    /// the floor, so the label shows the true level and never a rescaled one.
+    static func percentText(_ value: Double) -> String {
+        "\(Int((BrightnessLevel(value).value * 100).rounded()))%"
+    }
+
     /// - Parameters:
     ///   - level: the live level, when the display can be read back.
     ///   - remembered: the level Pitch last set on a write-only monitor.

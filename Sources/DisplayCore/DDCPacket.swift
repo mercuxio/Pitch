@@ -80,7 +80,12 @@ public enum DDC {
         if frame.first == sourceMonitor { frame = frame.dropFirst() }
         guard frame.count >= 10 else { throw FrameError.tooShort }
 
-        let b = Array(frame.prefix(10))  // length, opcode, result, vcp, type, maxH, maxL, curH, curL, checksum
+        var b = Array(frame.prefix(10))  // length, opcode, result, vcp, type, maxH, maxL, curH, curL, checksum
+        // The LG answers with `80 BE` — the DDC/CI null message — where `88 02`
+        // belongs, followed by an intact payload. The checksum is still computed
+        // over the real header, so a frame that is only a null message fails the
+        // feature check below and one with a damaged payload fails its checksum.
+        if b[0] == 0x80, b[1] == 0xBE { b[0] = 0x88; b[1] = replyOpcode }
         guard b[0] == 0x88, b[1] == replyOpcode else { throw FrameError.notAGetReply }
         guard b[2] == 0x00 else { throw FrameError.unsupportedFeature }
         guard b[3] == code else { throw FrameError.wrongFeature(b[3]) }

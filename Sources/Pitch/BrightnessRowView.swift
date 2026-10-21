@@ -21,6 +21,7 @@ final class BrightnessRowView: NSView {
     }
 
     private let slider: NSSlider
+    private let percent = NSTextField(labelWithString: "")
     private let onChange: (Double, Phase) -> Void
 
     init(model: BrightnessRowModel, onChange: @escaping (Double, Phase) -> Void) {
@@ -44,7 +45,13 @@ final class BrightnessRowView: NSView {
         label.setContentHuggingPriority(.required, for: .horizontal)
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        for view in [label, slider] as [NSView] {
+        percent.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        percent.alignment = .right
+        percent.textColor = model.isEnabled ? .secondaryLabelColor : .disabledControlTextColor
+        percent.stringValue = BrightnessRowModel.percentText(model.value)
+        percent.setContentHuggingPriority(.required, for: .horizontal)
+
+        for view in [label, slider, percent] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
@@ -56,8 +63,13 @@ final class BrightnessRowView: NSView {
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
             slider.leadingAnchor.constraint(
                 equalTo: label.trailingAnchor, constant: Metrics.gap),
-            slider.trailingAnchor.constraint(
+            percent.leadingAnchor.constraint(
+                equalTo: slider.trailingAnchor, constant: Metrics.gap),
+            percent.trailingAnchor.constraint(
                 equalTo: trailingAnchor, constant: -Metrics.visibleInset),
+            // Wide enough for "100%" so the slider does not shift as digits change.
+            percent.widthAnchor.constraint(equalToConstant: 36),
+            percent.centerYAnchor.constraint(equalTo: centerYAnchor),
             slider.centerYAnchor.constraint(equalTo: centerYAnchor),
             slider.widthAnchor.constraint(greaterThanOrEqualToConstant: Metrics.minimumSliderWidth),
         ])
@@ -72,6 +84,7 @@ final class BrightnessRowView: NSView {
     @objc private func moved() {
         let type = NSApp.currentEvent?.type
         let stillDragging = type == .leftMouseDown || type == .leftMouseDragged
+        percent.stringValue = BrightnessRowModel.percentText(slider.doubleValue)
         onChange(slider.doubleValue, stillDragging ? .dragging : .committed)
     }
 }

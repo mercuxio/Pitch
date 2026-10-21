@@ -22,6 +22,20 @@ public protocol DDCLinks: Sendable {
     func configurationDidChange()
 }
 
+/// Why a DDC read did or did not work, for a human reading `displayctl doctor`.
+/// Everything here is a read: the only frame sent is the luminance request.
+public enum DDCDiagnosis: Equatable, Sendable {
+    /// No IOAVService could be matched to the display (spec §18.4).
+    case noService
+    /// The write or read of the transport failed with this code.
+    case transportFailed(Int32)
+    /// Bytes came back but did not parse as a luminance reply.
+    case unparseable(DDC.FrameError, bytes: [UInt8])
+    case badChecksum(bytes: [UInt8])
+    case zeroMaximum(bytes: [UInt8])
+    case answered(current: UInt16, maximum: UInt16)
+}
+
 /// A third-party monitor's own backlight, over DDC/CI (spec §18.2, §18.4).
 public final class DDCBackend: BrightnessBackend, @unchecked Sendable {
     public let method = BrightnessMethod.ddc
@@ -98,6 +112,24 @@ public final class DDCBackend: BrightnessBackend, @unchecked Sendable {
         let raw = DDC.rawValue(for: level, maximum: maximum)
         let status = link.send(DDC.setVCP(DDC.luminance, value: raw))
         guard status == 0 else { throw DisplayError.brightnessWriteFailed(id, code: status) }
+    }
+
+    /// One read, reported stage by stage. Sends the luminance request and nothing
+    /// else, so it is as safe as `probe`.
+    public func diagnose(_ id: CGDirectDisplayID) -> DDCDiagnosis {
+        guard let link = links.link(for: id) else { return .noService }
+        let answer = link.request(DDC.getVCP(DDC.luminance), replyLength: Self.replyLength)
+        guard answer.status == 0 else { return .transportFailed(answer.status) }
+        do {
+            let reply = try DDC.parseReply(answer.bytes, expecting: DDC.luminance)
+            guard reply.checksumValid else { return .badChecksum(bytes: answer.bytes) }
+            guard reply.maximum > 0 else { return .zeroMaximum(bytes: answer.bytes) }
+            return .answered(current: reply.current, maximum: reply.maximum)
+        } catch let error as DDC.FrameError {
+            return .unparseable(error, bytes: answer.bytes)
+        } catch {
+            return .unparseable(.tooShort, bytes: answer.bytes)
+        }
     }
 
     public func configurationDidChange() {

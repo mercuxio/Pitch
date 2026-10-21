@@ -179,13 +179,6 @@ final class StatusMenuController: NSObject {
                 to: stack)
             Self.addFullWidth(Self.separator(), to: stack)
 
-            // Absent until a backend has been found for this display: the panel
-            // is built on the main thread and must not wait on a probe.
-            if let row = brightness.rowView(for: id) {
-                Self.addFullWidth(row, to: stack)
-                Self.addFullWidth(Self.separator(), to: stack)
-            }
-
             let current = try enumerator.currentMode(for: id)
             let modes = try enumerator.modes(for: id)
 
@@ -199,6 +192,15 @@ final class StatusMenuController: NSObject {
                         self?.dropdown.close()
                         self?.apply(signature, on: id)
                     }))
+
+            // Below the resolutions: the grid is why the panel is opened, and
+            // the slider is the occasional adjustment. Absent until a backend
+            // has been found for this display — the panel is built on the main
+            // thread and must not wait on a probe.
+            if let row = brightness.rowView(for: id) {
+                Self.addFullWidth(Self.separator(), to: stack)
+                Self.addFullWidth(row, to: stack)
+            }
         } catch {
             stack.addArrangedSubview(Self.message(ErrorText.describe(error)))
         }

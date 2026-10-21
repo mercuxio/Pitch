@@ -61,3 +61,10 @@ private func row(
 @Test func aHealthyRowIsEnabled() {
     #expect(row(.appleDisplay, level: 0.5).isEnabled)
 }
+
+@Test func thePercentageIsTheTrueLevelRoundedToAWholeNumber() {
+    #expect(BrightnessRowModel.percentText(1) == "100%")
+    #expect(BrightnessRowModel.percentText(0.49) == "49%")
+    #expect(BrightnessRowModel.percentText(0.495) == "50%")
+    #expect(BrightnessRowModel.percentText(0.05) == "5%")
+}
