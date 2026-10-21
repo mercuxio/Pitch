@@ -9,29 +9,22 @@ import Foundation
 public struct StoredDisplay: Codable, Equatable, Sendable {
     public var identity: DisplayIdentity
 
-    /// Only ever shown to a human: which entry is which, if they open the file.
-    /// Never matched on — a name is not an identity.
-    public var lastSeenName: String
-
     /// Newest first, capped by the caller.
     public var recents: [ModeSignature]
 
-    public init(identity: DisplayIdentity, lastSeenName: String, recents: [ModeSignature] = []) {
+    public init(identity: DisplayIdentity, recents: [ModeSignature] = []) {
         self.identity = identity
-        self.lastSeenName = lastSeenName
         self.recents = recents
     }
 
     enum CodingKeys: String, CodingKey {
         case identity
-        case lastSeenName
         case recents
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         identity = try container.decode(DisplayIdentity.self, forKey: .identity)
-        lastSeenName = try container.decodeIfPresent(String.self, forKey: .lastSeenName) ?? ""
         recents = try container.decodeIfPresent([ModeSignature].self, forKey: .recents) ?? []
     }
 }

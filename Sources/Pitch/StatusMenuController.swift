@@ -305,12 +305,7 @@ final class StatusMenuController: NSObject {
             // reverted is still one you went looking for, and the dots are for
             // finding a row again — not a record of what you settled on, which
             // is what the checkmark is for.
-            recents.record(
-                target.signature, for: displayID,
-                // Only ever read by a human opening the file, so the
-                // enumerator's own name is enough — no need for the header's
-                // richer lookup.
-                name: (try? enumerator.device(for: displayID).localizedName) ?? "")
+            recents.record(target.signature, for: displayID)
 
             confirmation.show(
                 headline: MenuModel.headline(for: target),

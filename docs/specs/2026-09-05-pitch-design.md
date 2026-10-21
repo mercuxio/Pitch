@@ -400,13 +400,20 @@ struct PresetStore: Codable {
 
 struct StoredDisplay: Codable {
     var identity: DisplayIdentity
-    var lastSeenName: String          // for the UI only, never for matching
     var favorites: [ModeSignature]
     var hidden: [ModeSignature]
     var autoRestore: ModeSignature?
     var toggleA, toggleB: ModeSignature?
 }
 ```
+
+`StoredDisplay` deliberately carries no display name. An earlier draft kept a
+`lastSeenName` so that a human opening the file could tell the entries apart.
+`CGDisplay*` has no name API, so the only name available where the entry is
+written is a positional `"Display 1"` — identical for every display, which
+defeats the one thing the field was for. Names the user sees come from
+`NSScreen.localizedName` at display time (`DisplayNames.swift`). Decoding ignores
+the key, so files written before it was dropped still load.
 
 Stored at `~/Library/Application Support/Pitch/presets.json`, written atomically
 via temp file + `rename`. A file rather than `UserDefaults` because "send me your

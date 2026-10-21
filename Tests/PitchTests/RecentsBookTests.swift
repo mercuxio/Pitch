@@ -56,7 +56,7 @@ private let studio = DisplayIdentity(uuid: "A1", hardwareKey: "7789:23305:79350"
     let identifier = FakeIdentifier(identities: [1: studio])
 
     RecentsBook(store: store, identifier: identifier)
-        .record(hd, for: 1, name: "Studio Display")
+        .record(hd, for: 1)
     // A second book over the same file is what a relaunch looks like.
     let afterRelaunch = RecentsBook(store: store, identifier: identifier)
 
@@ -69,7 +69,7 @@ private let studio = DisplayIdentity(uuid: "A1", hardwareKey: "7789:23305:79350"
     // they must be found under.
     let store = FakeStore()
     RecentsBook(store: store, identifier: FakeIdentifier(identities: [1: studio]))
-        .record(hd, for: 1, name: "Studio Display")
+        .record(hd, for: 1)
 
     let afterReplug = RecentsBook(
         store: store, identifier: FakeIdentifier(identities: [99: studio]))
@@ -80,7 +80,7 @@ private let studio = DisplayIdentity(uuid: "A1", hardwareKey: "7789:23305:79350"
 @Test func aDifferentMonitorDoesNotInheritTheDots() {
     let store = FakeStore()
     RecentsBook(store: store, identifier: FakeIdentifier(identities: [1: studio]))
-        .record(hd, for: 1, name: "Studio Display")
+        .record(hd, for: 1)
 
     let stranger = DisplayIdentity(uuid: "B2", hardwareKey: "1:2:3")
     let book = RecentsBook(store: store, identifier: FakeIdentifier(identities: [1: stranger]))
@@ -94,15 +94,15 @@ private let studio = DisplayIdentity(uuid: "A1", hardwareKey: "7789:23305:79350"
     let twin = DisplayIdentity(uuid: nil, hardwareKey: "7789:23305:0")
     let store = FakeStore(
         PresetStore(displays: [
-            StoredDisplay(identity: twin, lastSeenName: "Twin", recents: [hd]),
-            StoredDisplay(identity: twin, lastSeenName: "Twin", recents: [signature(width: 1280)]),
+            StoredDisplay(identity: twin, recents: [hd]),
+            StoredDisplay(identity: twin, recents: [signature(width: 1280)]),
         ]))
     let book = RecentsBook(store: store, identifier: FakeIdentifier(identities: [1: twin]))
 
     #expect(book.recents(for: 1).isEmpty)
 
     // And recording must not append a third entry that ties with the other two.
-    book.record(signature(width: 1600), for: 1, name: "Twin")
+    book.record(signature(width: 1600), for: 1)
     #expect(store.contents.displays.count == 2)
 }
 
@@ -113,7 +113,7 @@ private let studio = DisplayIdentity(uuid: "A1", hardwareKey: "7789:23305:79350"
     store.loadError = DisplayError.storeSchemaUnsupported(version: 99)
     let book = RecentsBook(store: store, identifier: FakeIdentifier(identities: [1: studio]))
 
-    book.record(hd, for: 1, name: "Studio Display")
+    book.record(hd, for: 1)
 
     #expect(store.saveCount == 0)
 }
@@ -125,11 +125,11 @@ private let studio = DisplayIdentity(uuid: "A1", hardwareKey: "7789:23305:79350"
     let stale = DisplayIdentity(uuid: "STALE", hardwareKey: "7789:23305:79350")
     let store = FakeStore(
         PresetStore(displays: [
-            StoredDisplay(identity: stale, lastSeenName: "Studio Display", recents: [])
+            StoredDisplay(identity: stale, recents: [])
         ]))
     let book = RecentsBook(store: store, identifier: FakeIdentifier(identities: [1: studio]))
 
-    book.record(hd, for: 1, name: "Studio Display")
+    book.record(hd, for: 1)
 
     #expect(store.contents.displays.first?.identity.uuid == "A1")
 }
@@ -139,7 +139,7 @@ private let studio = DisplayIdentity(uuid: "A1", hardwareKey: "7789:23305:79350"
     let book = RecentsBook(store: store, identifier: FakeIdentifier(identities: [1: studio]))
 
     for width in [1280, 1440, 1600, 1680, 1920, 2560] {
-        book.record(signature(width: width), for: 1, name: "Studio Display")
+        book.record(signature(width: width), for: 1)
     }
 
     #expect(store.contents.displays.first?.recents.count == MenuModel.recentCapacity)
@@ -152,7 +152,7 @@ private let studio = DisplayIdentity(uuid: "A1", hardwareKey: "7789:23305:79350"
     // The dots must still work; they just do not outlive the launch.
     let book = RecentsBook(store: nil, identifier: FakeIdentifier(identities: [1: studio]))
 
-    book.record(hd, for: 1, name: "Studio Display")
+    book.record(hd, for: 1)
 
     #expect(book.recents(for: 1) == [hd])
 }

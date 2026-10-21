@@ -56,22 +56,20 @@ final class RecentsBook {
         contents.entry(matching: identifier.identity(for: id))?.recents ?? []
     }
 
-    func record(_ signature: ModeSignature, for id: CGDirectDisplayID, name: String) {
+    func record(_ signature: ModeSignature, for id: CGDirectDisplayID) {
         let live = identifier.identity(for: id)
 
         switch contents.lookup(live) {
         case .found(let index, let tier):
             var entry = contents.displays[index]
             entry.recents = MenuModel.remembering(signature, in: entry.recents)
-            entry.lastSeenName = name
             if let healed = entry.identity.healed(against: live, matchedBy: tier) {
                 entry.identity = healed
             }
             contents.displays[index] = entry
 
         case .none:
-            contents.displays.append(
-                StoredDisplay(identity: live, lastSeenName: name, recents: [signature]))
+            contents.displays.append(StoredDisplay(identity: live, recents: [signature]))
 
         case .ambiguous:
             // Two stored entries tie on this display. Appending a third would

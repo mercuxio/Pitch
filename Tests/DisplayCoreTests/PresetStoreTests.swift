@@ -17,10 +17,9 @@ private let signature = ModeSignature(
     pixelWidth: 5120, pixelHeight: 2880,
     refreshMilliHz: 60_000, isSafe: true)
 
-private func stored(name: String = "Studio Display") -> StoredDisplay {
+private func stored(uuid: String = "A1") -> StoredDisplay {
     StoredDisplay(
-        identity: DisplayIdentity(uuid: "A1", hardwareKey: "1:2:3"),
-        lastSeenName: name,
+        identity: DisplayIdentity(uuid: uuid, hardwareKey: "1:2:3"),
         recents: [signature])
 }
 
@@ -66,7 +65,7 @@ private func stored(name: String = "Studio Display") -> StoredDisplay {
         let store = FilePresetStore(url: url)
 
         try store.save(PresetStore(displays: [stored()]))
-        try store.save(PresetStore(displays: [stored(name: "Second")]))
+        try store.save(PresetStore(displays: [stored(uuid: "B2")]))
 
         let left = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         #expect(left == ["presets.json"])
@@ -102,13 +101,17 @@ private func stored(name: String = "Studio Display") -> StoredDisplay {
 @Test func aDisplayEntryDecodesWithoutFieldsThatArriveLater() throws {
     // Favourites, hidden modes and auto-restore all land in this same file. An
     // entry written today must still decode once they exist, and vice versa.
+    //
+    // `lastSeenName` is the other direction, and already on disk: entries
+    // written before it was dropped still carry it, and a key this version no
+    // longer knows must be ignored rather than rejected.
     let json = Data(
         #"{"identity":{"hardwareKey":"1:2:3"},"lastSeenName":"Display 1"}"#.utf8)
 
     let decoded = try JSONDecoder().decode(StoredDisplay.self, from: json)
 
     #expect(decoded.recents.isEmpty)
-    #expect(decoded.lastSeenName == "Display 1")
+    #expect(decoded.identity.hardwareKey == "1:2:3")
 }
 
 @Test func theStoreFindsADisplayByIdentityAndIgnoresStrangers() {
