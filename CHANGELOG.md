@@ -6,6 +6,13 @@ All notable changes to Pitch are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.2.3] — 2026-10-21
+
+### Changed
+
+- The gear menu labels are in sentence case: Display arrangement…, Start at
+  login, Check for updates automatically and Restore defaults.
+
 ## [1.2.2] — 2026-10-21
 
 ### Fixed

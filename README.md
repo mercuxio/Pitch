@@ -59,13 +59,13 @@ gets a row, so the panel can never open without a checkmark in it.
 The gear opens a second dropdown — a menu, not a dialog, and the resolution
 panel stays put underneath it:
 
-- **Display Arrangement…** opens the System Settings pane where displays are
+- **Display arrangement…** opens the System Settings pane where displays are
   positioned. Shown only when more than one display is attached, since with one
   display that pane has nothing to arrange.
-- **Start at Login**, via `SMAppService`. When macOS is waiting for you to
+- **Start at login**, via `SMAppService`. When macOS is waiting for you to
   approve the login item, the toggle disables itself rather than pretending a
   click would work.
-- **Restore Defaults**, which returns every display to the system's saved
+- **Restore defaults**, which returns every display to the system's saved
   configuration.
 
 ## Confirm or revert

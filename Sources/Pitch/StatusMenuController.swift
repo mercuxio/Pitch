@@ -209,7 +209,7 @@ final class StatusMenuController: NSObject {
 
         Self.addFullWidth(Self.separator(), to: stack)
 
-        // Restore Defaults lives in Settings. It is a rare, deliberate action,
+        // Restore defaults lives in Settings. It is a rare, deliberate action,
         // and the countdown — not a list item — is what rescues an unreadable
         // screen, so it does not need to be one click away.
         Self.addFullWidth(

@@ -29,7 +29,7 @@ struct SettingsMenuTests {
 
     @Test func theUpdateItemSitsDirectlyBelowStartAtLogin() {
         let titles = settings().menu(displayCount: 1).items.map(\.title)
-        let login = titles.firstIndex(of: "Start at Login")
+        let login = titles.firstIndex(of: "Start at login")
         let updates = titles.firstIndex(of: SettingsMenu.updatesTitle)
         #expect(login != nil)
         #expect(updates == login.map { $0 + 1 })
@@ -71,12 +71,12 @@ struct SettingsMenuTests {
 
     @Test func theRestOfTheMenuDoesNotDependOnTheDisplayCount() {
         // The arrangement item and its separator are the only difference, so a
-        // change that started hiding Start at Login on one display would show up
+        // change that started hiding Start at login on one display would show up
         // here rather than in a bug report.
         for count in [1, 2, 5] {
             let titles = settings().menu(displayCount: count).items.map(\.title)
-            #expect(titles.contains("Start at Login"))
-            #expect(titles.contains("Restore Defaults"))
+            #expect(titles.contains("Start at login"))
+            #expect(titles.contains("Restore defaults"))
         }
     }
 
@@ -104,7 +104,7 @@ struct SettingsMenuTests {
         // `NSMenu.autoenablesItems` defaults to true, and under it AppKit
         // recomputes every item's enabled state from its target and selector
         // just before the menu draws — discarding whatever the builder set.
-        // Start at Login turns itself off when macOS is waiting for the user to
+        // Start at login turns itself off when macOS is waiting for the user to
         // approve the login item, and that is precisely a case where the item
         // has a target that does respond to the selector, so auto-enabling
         // would put it back. The flag is the whole reason that works.
@@ -122,7 +122,7 @@ struct SettingsMenuTests {
         // the builder. Surviving `update()` enabled is only possible with the
         // flag off.
         menu.update()
-        let restore = menu.items.first { $0.title == "Restore Defaults" }
+        let restore = menu.items.first { $0.title == "Restore defaults" }
         #expect(restore?.action != nil)
         let restoreIsEnabled = restore?.isEnabled ?? false
         #expect(restoreIsEnabled)

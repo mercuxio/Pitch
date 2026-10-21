@@ -11,8 +11,8 @@ final class SettingsMenu: NSObject {
     private let arrange: () -> Void
     private let updater: any UpdateChecking
 
-    /// - Parameter restore: runs `Restore Defaults`.
-    /// - Parameter arrange: opens Display Arrangement.
+    /// - Parameter restore: runs `Restore defaults`.
+    /// - Parameter arrange: opens Display arrangement.
     /// - Parameter updater: owns the automatic-update switch.
     ///
     /// Both are injected rather than reached for, so this menu never touches a
@@ -74,7 +74,7 @@ final class SettingsMenu: NSObject {
         // Off, because this menu decides for itself which items are live.
         // Left on — the default — AppKit recomputes `isEnabled` from each
         // item's target and selector just before the menu draws, throwing away
-        // every value set below: the Start at Login item would render clickable
+        // every value set below: the Start at login item would render clickable
         // in the one state where clicking it cannot possibly work.
         menu.autoenablesItems = false
 
@@ -94,7 +94,7 @@ final class SettingsMenu: NSObject {
         }
 
         let launch = NSMenuItem(
-            title: "Start at Login", action: #selector(toggleLaunch), keyEquivalent: "")
+            title: "Start at login", action: #selector(toggleLaunch), keyEquivalent: "")
         launch.target = self
         launch.state = LaunchAtLogin.isEnabled ? .on : .off
         // Approval is the system's to give; clicking again cannot grant it.
@@ -105,7 +105,7 @@ final class SettingsMenu: NSObject {
         launch.toolTip = LaunchAtLogin.note
         menu.addItem(launch)
 
-        // Read from the updater on every build, like Start at Login: Sparkle
+        // Read from the updater on every build, like Start at login: Sparkle
         // persists the choice itself, so nothing here can drift from it.
         let updates = NSMenuItem(
             title: Self.updatesTitle, action: #selector(toggleUpdates), keyEquivalent: "")
@@ -114,7 +114,7 @@ final class SettingsMenu: NSObject {
         menu.addItem(updates)
 
         let restoreItem = NSMenuItem(
-            title: "Restore Defaults", action: #selector(restorePressed), keyEquivalent: "")
+            title: "Restore defaults", action: #selector(restorePressed), keyEquivalent: "")
         restoreItem.target = self
         menu.addItem(restoreItem)
 
@@ -128,10 +128,10 @@ final class SettingsMenu: NSObject {
 
     /// The title of the item that opens System Settings, shared with the test
     /// that checks when it appears.
-    static let arrangementTitle = "Display Arrangement…"
+    static let arrangementTitle = "Display arrangement…"
 
     /// The automatic-update item's title, shared with the tests that find it.
-    static let updatesTitle = "Check for Updates Automatically"
+    static let updatesTitle = "Check for updates automatically"
 
     /// Breathing room between the gear and the menu that drops out of it.
     static let gap: CGFloat = 4
