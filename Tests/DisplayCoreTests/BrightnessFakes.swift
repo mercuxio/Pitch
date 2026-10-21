@@ -88,3 +88,57 @@ final class FakeDisplayServices: DisplayServicesCalls, @unchecked Sendable {
         return setStatus
     }
 }
+
+/// A monitor's DDC bus, scripted. Never touches a display.
+///
+/// `replies` are consumed one per request, the last repeating, so a test can say
+/// "silent, then answers" without a clock.
+final class FakeDDCLink: DDCLink, @unchecked Sendable {
+    var replies: [[UInt8]]
+    var requestStatus: Int32 = 0
+    var sendStatus: Int32 = 0
+
+    private(set) var requestCount = 0
+    private(set) var sent: [[UInt8]] = []
+
+    init(replies: [[UInt8]] = []) {
+        self.replies = replies
+    }
+
+    /// A well-formed "Get VCP Feature Reply" for luminance, checksum included.
+    static func luminanceReply(current: UInt16, maximum: UInt16, corruptChecksum: Bool = false)
+        -> [UInt8]
+    {
+        var frame: [UInt8] = [
+            0x88, 0x02, 0x00, DDC.luminance, 0x00,
+            UInt8(maximum >> 8), UInt8(maximum & 0xFF),
+            UInt8(current >> 8), UInt8(current & 0xFF),
+        ]
+        let checksum = frame.reduce(UInt8(0x50 ^ 0x6E), ^)
+        frame.append(corruptChecksum ? checksum ^ 0xFF : checksum)
+        return frame
+    }
+
+    func send(_ frame: [UInt8]) -> Int32 {
+        sent.append(frame)
+        return sendStatus
+    }
+
+    func request(_ frame: [UInt8], replyLength: Int) -> (status: Int32, bytes: [UInt8]) {
+        defer { requestCount += 1 }
+        guard !replies.isEmpty else { return (requestStatus, []) }
+        return (requestStatus, replies[min(requestCount, replies.count - 1)])
+    }
+}
+
+final class FakeDDCLinks: DDCLinks, @unchecked Sendable {
+    var links: [CGDirectDisplayID: FakeDDCLink]
+    private(set) var configurationChanges = 0
+
+    init(_ links: [CGDirectDisplayID: FakeDDCLink] = [:]) {
+        self.links = links
+    }
+
+    func link(for id: CGDirectDisplayID) -> (any DDCLink)? { links[id] }
+    func configurationDidChange() { configurationChanges += 1 }
+}

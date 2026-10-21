@@ -768,10 +768,17 @@ stored level at launch or wake.
   question) and reports a bad checksum instead of trusting the value.
 - **The maximum is read, never assumed.** A monitor reports its own maximum for
   feature `0x10`; it is not always 100. Level is `raw / reported max`.
-- **Display-to-service mapping is the hard part** and is a spike, not a decision. Two
-  candidates: match the registry node's `EDID UUID` to `CGDisplayCreateUUIDFromDisplayID`;
-  or follow `IODisplayLocation` from `CoreDisplay_DisplayCreateInfoDictionary`. The
-  spike picks whichever works on the hardware in §18.11.
+- **Display-to-service mapping** was a spike and has a result. Neither original
+  candidate (EDID UUID, `IODisplayLocation`) is used. A `DCPAVServiceProxy` with
+  `Location = External` has an ancestor named `dispextN:dcpav-service-epic:0`; the
+  device node `dispextN` has an `AppleCLCD2` child whose
+  `DisplayAttributes.ProductAttributes` carry `LegacyManufacturerID`, `ProductID` and
+  `SerialNumber` — the same three numbers as `CGDisplayVendorNumber`,
+  `CGDisplayModelNumber` and `CGDisplaySerialNumber`. `N` links service to node; the
+  three numbers link node to display. (The EDID UUID is also reachable but its serial
+  is zeroed, so it is the weaker key.) `DDCMatching.assign` is the pure rule: a
+  display gets a service only if exactly one online display and exactly one service
+  carry its triple.
 - **Ambiguity declines.** Two displays that map equally well (identical twins) get no
   DDC — they fall through to gamma. A wrong mapping dims the *wrong monitor*, so the
   §9 rule applies unchanged: never guess.
@@ -782,6 +789,14 @@ stored level at launch or wake.
   failing the slider.
 - **A probe never writes.** `doctor` runs probes, so a probe that changed state would
   make the diagnostic command unsafe to run unattended.
+- **DDC is claimed only on a valid reply.** The probe sends one get-VCP request for
+  luminance (up to twice) and supports the display only if the answer parses, passes
+  its checksum and reports a non-zero maximum. A silent bus, or a buffer filled with a
+  constant, is `.unsupported`, and the display falls through to gamma. The cost: a
+  monitor that accepts DDC writes but never answers reads is not driven by DDC.
+  Claiming it would put a slider on screen that moves nothing, which is worse.
+  `list`, `get` and `doctor` therefore send that request to external monitors; it
+  changes nothing on the monitor.
 
 ### 18.5 Gamma
 
@@ -875,7 +890,15 @@ displays moved independently. Logged against `docs/milestone-3-carry-forward.md`
 
 ### 18.11 Open questions
 
-1. **Which DDC mapping candidate works** (§18.4), on the LG's actual connection.
+1. **Does the LG answer a DDC read at all?** The mapping is settled (§18.4). The read
+   spike was not: `IOAVServiceWriteI2C` and `IOAVServiceReadI2C` returned 0 but the
+   reply buffer was twelve `0xFA` bytes at every settle delay tried (40-500 ms) and
+   every read offset (`0x51`, `0x0`, `0x37`). Unresolved causes: DDC/CI switched off
+   in the monitor's OSD; the cable or dock; contention with Vorssaint, which holds a
+   user client on the same service; **or the monitor being asleep** — it was asleep
+   when this was last checked, and nothing records whether it was during the spike.
+   Re-run with the display awake and Vorssaint quit before concluding anything. The
+   read offset and the 50 ms settle in `IOAVServiceLink` are unverified guesses.
 2. **Is gamma released on process exit or crash?** (§18.5). If not, a §8.3-style
    recovery path is needed.
 3. **Are the floors right?** (§18.6)

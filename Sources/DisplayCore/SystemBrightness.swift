@@ -7,6 +7,7 @@ extension BrightnessRouter {
     public static func system() -> BrightnessRouter {
         BrightnessRouter(backends: [
             DisplayServicesBackend(calls: DynamicDisplayServices()),
+            DDCBackend(links: IOAVServiceLinks()),
             GammaBackend(tables: CoreGraphicsGamma())
         ])
     }
