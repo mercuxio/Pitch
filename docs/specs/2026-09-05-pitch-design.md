@@ -3,6 +3,7 @@
 **Date:** 2026-09-05
 **Status:** Draft for review
 **Target:** macOS 14+, arm64-only, non-sandboxed, Developer ID + notarized
+**Amended:** 2026-10-21 — brightness added (§2, §16, §17, new §18)
 
 ---
 
@@ -30,13 +31,17 @@ materially — see §4.
 - Drive multiple simultaneous displays independently, and survive hot-plug
 - Remember a preferred mode per physical display and reapply it on reconnect
 - Expose refresh rate as part of mode selection
+- Control brightness per display: hardware where the display allows it, software
+  dimming where it does not (§18)
 - Never leave the user on an unreadable screen
 
 ### Non-goals
 
 - Creating modes that the display does not report (no EDID/display-override
   plist authoring — SIP-protected, requires reboot, wrong tool for this job)
-- Brightness, colour, or DDC control (MonitorControl and Lunar own that space)
+- Colour or gamut control, Night Shift, keyboard backlight, XDR boost, and dimming
+  below a monitor's hardware minimum (§18.1 lists what brightness leaves out;
+  MonitorControl and Lunar own the wider space)
 - Window management or display arrangement (displayplacer owns that)
 - Mac App Store distribution — incompatible with the private-API enhancement
   path in §7.2 and with the non-sandboxed requirement
@@ -632,6 +637,7 @@ independently useful.
 | 6 | Hot-plug pipeline + auto-restore, on by default | Multi-display, a stated requirement. Needs a second display to sign off. |
 | 7 | CGS bridge behind the self-check; stretched modes section | The optional enhancement — the one milestone that could be cut |
 | 8 | Sign, notarize, `.dmg`, Sparkle appcast | Shipping |
+| 9 | Brightness (§18): router and backends against fakes, `GammaBackend`, `DisplayServicesBackend`, DDC after a mapping spike, panel slider | Per-display brightness. Hardware sign-off by a human at the keyboard. |
 
 Milestone 1 deliberately excludes the private API. Under the original design it was
 the day-one risk; §4.1 demoted it to an optional extra, and building the public path
@@ -658,6 +664,10 @@ sections the menu per display, and milestone 5 keys presets by physical identity
 | Identical twin monitors alias | Medium | `registryLocation` tier; decline-to-guess rule |
 | Sparkle key handling | Medium | EdDSA; key outside the repo; document the release process |
 | `CGCompleteDisplayConfiguration` hang | Low | 5 s watchdog, off-main-thread |
+| DDC maps a display to the wrong `IOAVService` and dims the wrong monitor | Medium | Mapping validated in a spike; ambiguity declines to gamma (§18.4) |
+| Private `DisplayServices` / `IOAVService` symbols change or vanish | Medium | Every symbol optional; backend reports unsupported; `doctor` self-check (§18.7) |
+| DDC write left in a monitor after a bad value | Low | Per-backend floor; recovery is the monitor's own buttons (§18.6) |
+| Gamma not released on crash | Medium (unverified) | §18.11 question 2; if false, add a recovery path |
 
 **Open questions for the author:**
 
@@ -666,6 +676,199 @@ sections the menu per display, and milestone 5 keys presets by physical identity
 2. What second-display hardware will be available for milestone 6 sign-off, and
    when? This does not block starting — milestones 1–5 need no second display —
    but it does block release.
+
+---
+
+## 18. Brightness
+
+*Added 2026-10-21. Reverses the §2 non-goal that previously excluded brightness.*
+
+### 18.1 Scope
+
+Pitch gains one brightness slider per display. macOS has no public brightness API
+for any display, and exposes no slider at all for most third-party externals — which
+is what the recorded displays are (vendor IDs 7789 and 19501 decode as the EDID
+manufacturer codes `GSM` and `SAM`, i.e. LG and Samsung). Three mechanisms cover the
+space between them; none covers it alone.
+
+**In scope:** a slider per display; hardware control where the display allows it;
+software dimming where it does not; `displayctl brightness`; a read-only brightness
+section in `displayctl doctor`.
+
+**Out of scope for this section:** intercepting the keyboard brightness keys (needs an
+event tap and the Accessibility permission, which nothing else in Pitch needs);
+global brightness hotkeys; keyboard backlight; XDR/EDR boost above the panel's normal
+maximum; dimming below a monitor's hardware minimum; ambient or automatic brightness;
+keeping two displays at the same level. Each is a separate decision, not a gap.
+
+### 18.2 Backends
+
+| Backend | Used for | Mechanism | Probe |
+|---|---|---|---|
+| `DisplayServicesBackend` | Apple panels (built-in, Studio Display, Pro Display XDR) | Private `DisplayServicesGetBrightness` / `DisplayServicesSetBrightness`, resolved with `dlsym` | Symbols resolve **and** a Get on this display succeeds |
+| `DDCBackend` | Third-party externals | DDC/CI over I²C through private `IOAVService*`, MCCS VCP feature `0x10` (luminance) | Map display to service, then send a VCP **get**. Replies → readable. Accepts writes but never replies → write-only (still usable). No service or I²C error → unsupported |
+| `GammaBackend` | Any active display | Public CoreGraphics gamma-table scaling against a captured baseline | Always supported on an active display |
+
+`BrightnessRouter` tries them in that order; the first whose probe is not
+*unsupported* wins. The choice is cached **by `CGDirectDisplayID` for the current
+configuration only** and dropped on every display reconfiguration and wake — the
+same lesson as §9: the ID is reassigned on replug, so a cache entry outliving a
+reconfiguration describes a different monitor.
+
+The older `IODisplaySetFloatParameter` route is deliberately absent: it targets the
+backlight through IOKit, which on Apple silicon sits behind the display coprocessor.
+
+### 18.3 Domain model and persistence
+
+```swift
+public struct BrightnessLevel: Equatable, Sendable {   // clamped to 0...1
+    public let value: Double
+}
+
+public enum BrightnessMethod: Equatable, Sendable {
+    case appleDisplay, ddc(readable: Bool), gamma
+}
+
+public protocol BrightnessBackend: Sendable {
+    var method: BrightnessMethod { get }
+    func probe(_ id: CGDirectDisplayID) -> BrightnessProbe        // never writes
+    func level(for id: CGDirectDisplayID) throws -> BrightnessLevel?  // nil = write-only
+    func setLevel(_ level: BrightnessLevel, for id: CGDirectDisplayID) throws
+}
+```
+
+Persisted, keyed by `DisplayIdentity` through the existing `PresetStore.lookup`: an
+optional `brightness: Double?` on `StoredDisplay`, read with `decodeIfPresent`. An
+optional key is safe in both directions without a `schemaVersion` bump — a newer file
+read by an older build has the key ignored, an older file read by a newer build
+decodes it as `nil`.
+
+It exists for one case: a **write-only DDC** monitor cannot be asked its level, so the
+last level Pitch set is the only thing the slider can show. For readable DDC and for
+Apple panels the live value wins. For gamma it is **not used** — quitting restores the
+display (§18.5), so a remembered level would describe a state that no longer exists.
+Capability is never persisted; it is re-probed, because the answer depends on the
+cable and dock the display is on today.
+
+**Pitch changes brightness only in response to the slider.** It does not reapply a
+stored level at launch or wake.
+
+### 18.4 DDC
+
+- **Packet construction is a pure function.** Build and parse MCCS get/set VCP
+  frames, including the checksum, in `DisplayCore` with no I/O, and test them against
+  recorded packets.
+- **The maximum is read, never assumed.** A monitor reports its own maximum for
+  feature `0x10`; it is not always 100. Level is `raw / reported max`.
+- **Display-to-service mapping is the hard part** and is a spike, not a decision. Two
+  candidates: match the registry node's `EDID UUID` to `CGDisplayCreateUUIDFromDisplayID`;
+  or follow `IODisplayLocation` from `CoreDisplay_DisplayCreateInfoDictionary`. The
+  spike picks whichever works on the hardware in §18.11.
+- **Ambiguity declines.** Two displays that map equally well (identical twins) get no
+  DDC — they fall through to gamma. A wrong mapping dims the *wrong monitor*, so the
+  §9 rule applies unchanged: never guess.
+- **Writes are slow and are coalesced.** Tens of milliseconds each. One serial queue
+  per display, latest value wins, nothing queues behind it, never on the main thread.
+  Time enters through the injected `MonotonicClock`, as in §8.
+- **A reply that stops arriving downgrades to write-only** for the session instead of
+  failing the slider.
+- **A probe never writes.** `doctor` runs probes, so a probe that changed state would
+  make the diagnostic command unsafe to run unattended.
+
+### 18.5 Gamma
+
+- Capture a baseline with `CGGetDisplayTransferByTable` before the first change; scale
+  each channel by the level.
+- **Restore through `CGDisplayRestoreColorSyncSettings`**, never by writing the
+  captured table back. The system tables can include a Night Shift tint at capture
+  time; writing them back would pin that tint after Night Shift turns off.
+- Restore on quit, and when a display moves to a different method.
+- Re-apply after wake and after reconfiguration; the system may reset the tables.
+- Gamma dimming shares one ramp with Night Shift and True Tone and can fight them.
+  Documented, not solved.
+- It is believed that gamma set through this API is released when the setting process
+  exits, crash included — which would make it safe against the hole in
+  `docs/milestone-3-carry-forward.md` item 2. **Unverified**; §18.11.
+
+### 18.6 Safety
+
+- **Floors.** The slider's lower bound is per backend, so no position is an
+  unreadable screen: hardware backends 0.05, gamma 0.20. These are starting values to
+  be tuned on hardware.
+- **No confirm-or-revert.** A brightness change is continuous and visibly obvious
+  the instant it happens; a 15-second countdown on a slider drag would be hostile. The
+  floor is the safety property here, not a timer. (Ruling — the reverse is cheap if
+  hardware testing disagrees.)
+- **DDC outlives the process.** A hardware write persists in the monitor, unlike
+  gamma. Recovery from a bad value is the monitor's own buttons, which the floor makes
+  unnecessary in practice.
+- **Unattended rule.** `displayctl brightness set` joins `set` and `restore` as
+  forbidden when the machine's owner is not at the keyboard. `brightness list`,
+  `brightness get` and `doctor` are read-only and safe.
+
+### 18.7 Layering
+
+Unchanged dependency rule: the app depends on the core, never the reverse.
+`DisplayCore` holds `BrightnessLevel`, the backend protocol, `BrightnessRouter`, the
+DDC packet codec and the write coalescer, and contains **no user-facing strings**.
+
+`BrightnessBridge.swift` is the only file that touches `DisplayServices` or
+`IOAVService` symbols, with `DDCRegistry.swift` for the IOKit traversal. Every symbol
+is resolved at runtime and every one is optional: a missing symbol makes that backend
+report *unsupported* and never crashes. This is the §5 `CGSBridge.swift` rule. Note
+that `CGSBridge.swift` was never built, so brightness is the first private-symbol code
+in the tree. The dependency list is unchanged.
+
+Until the §11 hot-plug pipeline exists, the router is invalidated on
+`NSApplication.didChangeScreenParametersNotification` and on wake, both in the app
+target. All text lives in `Sources/Pitch` and `Sources/displayctl/Rendering.swift`.
+
+### 18.8 User interface
+
+One slider row per display in the §12.1 panel, under the display's header. It reads
+**Brightness** for Apple and DDC displays and **Dimming** for gamma, with a tooltip on
+the latter saying it reduces brightness in software and does not deepen blacks. A
+display that fails shows a disabled row with a tooltip. No alert: the slider row is
+the only surface the failure touches.
+
+### 18.9 Testing
+
+**Unit, no hardware:** DDC packet build/parse and checksum against recorded frames;
+raw↔level normalisation with a maximum other than 100; router order, fall-through,
+caching and invalidation, driven by fake backends; floors; the coalescer under a fake
+clock (latest-wins, no backlog); `StoredDisplay` decoding with and without
+`brightness`; absent-symbol handling.
+
+**Integration (`displayctl`):** `brightness list` shows the chosen method per
+display; `doctor` gains a Brightness section — the command to run after any macOS
+update, as with the CGS self-check.
+
+**Manual, human at the keyboard (release blocker):** each backend on real hardware;
+slider range and floors; dock/undock and sleep/wake; a write-only monitor; two
+displays moved independently. Logged against `docs/milestone-3-carry-forward.md`.
+
+### 18.10 Build order
+
+1. Types, protocol, router, DDC codec, coalescer — all against fakes.
+2. `GammaBackend` and `displayctl brightness`.
+3. `DisplayServicesBackend`.
+4. **DDC mapping spike**, then `DDCBackend`.
+5. The panel slider row.
+6. Hardware sign-off.
+
+### 18.11 Open questions
+
+1. **Which DDC mapping candidate works** (§18.4), on the LG's actual connection.
+2. **Is gamma released on process exit or crash?** (§18.5). If not, a §8.3-style
+   recovery path is needed.
+3. **Are the floors right?** (§18.6)
+4. **What can be verified here?** When this section was written the development
+   machine was a `Mac14,2` (an M2 MacBook Air) and `system_profiler` listed exactly
+   one display, the LG, with no connection type reported. No built-in panel was
+   listed (a closed lid is the likely reason; not confirmed) and the Samsung recorded
+   in `presets.json` was not attached. So: the Apple backend needs the built-in panel
+   active, the Samsung's DDC cannot be verified until it is connected, and how the
+   LG is cabled — which decides whether DDC works at all — is still unknown.
 
 ---
 
