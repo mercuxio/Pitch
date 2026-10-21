@@ -156,3 +156,81 @@ private let studio = DisplayIdentity(uuid: "A1", hardwareKey: "7789:23305:79350"
 
     #expect(book.recents(for: 1) == [hd])
 }
+
+@Test func aRememberedBrightnessSurvivesARelaunch() {
+    let store = FakeStore()
+    let identifier = FakeIdentifier(identities: [1: studio])
+
+    RecentsBook(store: store, identifier: identifier).recordBrightness(0.4, for: 1)
+    let afterRelaunch = RecentsBook(store: store, identifier: identifier)
+
+    #expect(afterRelaunch.brightness(for: 1) == 0.4)
+}
+
+@Test func brightnessIsFoundAgainAfterTheDisplayIDChanges() {
+    let store = FakeStore()
+    RecentsBook(store: store, identifier: FakeIdentifier(identities: [1: studio]))
+        .recordBrightness(0.4, for: 1)
+
+    let afterReplug = RecentsBook(
+        store: store, identifier: FakeIdentifier(identities: [99: studio]))
+
+    #expect(afterReplug.brightness(for: 99) == 0.4)
+}
+
+@Test func recordingBrightnessKeepsTheRecentsOfTheSameDisplay() {
+    let store = FakeStore()
+    let book = RecentsBook(store: store, identifier: FakeIdentifier(identities: [1: studio]))
+    book.record(hd, for: 1)
+
+    book.recordBrightness(0.7, for: 1)
+    book.record(signature(width: 1280), for: 1)
+
+    #expect(store.contents.displays.count == 1)
+    #expect(book.brightness(for: 1) == 0.7)
+    #expect(book.recents(for: 1) == [signature(width: 1280), hd])
+}
+
+@Test func aDisplayWithNothingRememberedHasNoBrightness() {
+    let book = RecentsBook(
+        store: FakeStore(), identifier: FakeIdentifier(identities: [1: studio]))
+
+    #expect(book.brightness(for: 1) == nil)
+}
+
+@Test func recordingTheSameBrightnessAgainDoesNotRewriteTheFile() {
+    // The slider commits on every release; a value that has not changed is not
+    // worth a disk write.
+    let store = FakeStore()
+    let book = RecentsBook(store: store, identifier: FakeIdentifier(identities: [1: studio]))
+
+    book.recordBrightness(0.4, for: 1)
+    book.recordBrightness(0.4, for: 1)
+
+    #expect(store.saveCount == 1)
+}
+
+@Test func identicalTwinsNeitherReadNorReceiveABrightness() {
+    let twin = DisplayIdentity(uuid: nil, hardwareKey: "7789:23305:0")
+    let store = FakeStore(
+        PresetStore(displays: [
+            StoredDisplay(identity: twin, brightness: 0.2),
+            StoredDisplay(identity: twin, brightness: 0.9),
+        ]))
+    let book = RecentsBook(store: store, identifier: FakeIdentifier(identities: [1: twin]))
+
+    #expect(book.brightness(for: 1) == nil)
+    book.recordBrightness(0.5, for: 1)
+    #expect(store.contents.displays.count == 2)
+    #expect(store.saveCount == 0)
+}
+
+@Test func aStoreThatCouldNotBeReadIsNotOverwrittenByABrightness() {
+    let store = FakeStore()
+    store.loadError = DisplayError.storeSchemaUnsupported(version: 99)
+    let book = RecentsBook(store: store, identifier: FakeIdentifier(identities: [1: studio]))
+
+    book.recordBrightness(0.4, for: 1)
+
+    #expect(store.saveCount == 0)
+}

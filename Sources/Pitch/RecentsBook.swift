@@ -57,19 +57,39 @@ final class RecentsBook {
     }
 
     func record(_ signature: ModeSignature, for id: CGDirectDisplayID) {
+        upsert(for: id) { $0.recents = MenuModel.remembering(signature, in: $0.recents) }
+    }
+
+    /// The level remembered for a monitor whose brightness cannot be read back
+    /// (spec §18.3). `nil` for every other display: for those the live level is
+    /// the truth, and a stored copy could only disagree with it.
+    func brightness(for id: CGDirectDisplayID) -> Double? {
+        contents.entry(matching: identifier.identity(for: id))?.brightness
+    }
+
+    func recordBrightness(_ level: Double, for id: CGDirectDisplayID) {
+        guard brightness(for: id) != level else { return }
+        upsert(for: id) { $0.brightness = level }
+    }
+
+    /// Applies `change` to this display's entry, creating it if the display is
+    /// new, and writes the book through.
+    private func upsert(for id: CGDirectDisplayID, _ change: (inout StoredDisplay) -> Void) {
         let live = identifier.identity(for: id)
 
         switch contents.lookup(live) {
         case .found(let index, let tier):
             var entry = contents.displays[index]
-            entry.recents = MenuModel.remembering(signature, in: entry.recents)
+            change(&entry)
             if let healed = entry.identity.healed(against: live, matchedBy: tier) {
                 entry.identity = healed
             }
             contents.displays[index] = entry
 
         case .none:
-            contents.displays.append(StoredDisplay(identity: live, recents: [signature]))
+            var entry = StoredDisplay(identity: live)
+            change(&entry)
+            contents.displays.append(entry)
 
         case .ambiguous:
             // Two stored entries tie on this display. Appending a third would
