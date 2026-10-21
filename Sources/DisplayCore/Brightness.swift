@@ -73,8 +73,14 @@ public protocol BrightnessBackend: Sendable {
     /// backend holding state keyed by display ID must drop or reset it: the ID
     /// may now name a different monitor. Default: nothing to drop.
     func configurationDidChange()
+
+    /// Pitch is quitting: undo anything that would otherwise outlive the
+    /// process and be mistaken for the display's real state. Default: nothing
+    /// to undo (a hardware write persists in the monitor by design).
+    func shutDown()
 }
 
 extension BrightnessBackend {
     public func configurationDidChange() {}
+    public func shutDown() {}
 }

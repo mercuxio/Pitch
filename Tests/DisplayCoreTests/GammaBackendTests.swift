@@ -131,3 +131,33 @@ import Testing
 
     #expect(tables.restoreCount == 1)
 }
+
+@Test func quittingHandsADimmedDisplayBackToTheSystem() throws {
+    let tables = FakeGammaTables()
+    let gamma = GammaBackend(tables: tables)
+    try gamma.setLevel(BrightnessLevel(0.5), for: 1)
+
+    gamma.shutDown()
+
+    #expect(tables.restoreCount == 1)
+}
+
+@Test func quittingLeavesAnUntouchedSystemAlone() {
+    // The same rule as a reconfiguration: restoring unconditionally would undo
+    // another tool's colour adjustment on every quit.
+    let tables = FakeGammaTables()
+
+    GammaBackend(tables: tables).shutDown()
+
+    #expect(tables.restoreCount == 0)
+}
+
+@Test func theRouterTellsEveryBackendThatPitchIsQuitting() {
+    let ddc = FakeBrightnessBackend(.ddc)
+    let gamma = FakeBrightnessBackend(.gamma)
+
+    BrightnessRouter(backends: [ddc, gamma]).shutDown()
+
+    #expect(ddc.shutDownCount == 1)
+    #expect(gamma.shutDownCount == 1)
+}

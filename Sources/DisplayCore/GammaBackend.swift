@@ -102,6 +102,13 @@ public final class GammaBackend: BrightnessBackend, @unchecked Sendable {
         lock.unlock()
         if hadDimmed { restoreAll() }
     }
+
+    /// Quit puts the screen back, but only if Pitch dimmed it: an unconditional
+    /// `CGDisplayRestoreColorSyncSettings` would also reset a colour adjustment
+    /// some other tool had applied and Pitch never touched.
+    public func shutDown() {
+        configurationDidChange()
+    }
 }
 
 /// The real thing. Not unit-tested: it is exactly the part that touches the

@@ -49,6 +49,12 @@ public final class BrightnessRouter: @unchecked Sendable {
         for backend in backends { backend.configurationDidChange() }
     }
 
+    /// Tells every backend the process is ending, so software dimming does not
+    /// have to be trusted to clean up after itself (spec §18.5).
+    public func shutDown() {
+        for backend in backends { backend.shutDown() }
+    }
+
     /// The live level; `nil` for a write-only display.
     public func level(for id: CGDirectDisplayID) throws -> BrightnessLevel? {
         guard let entry = entry(for: id) else { throw DisplayError.brightnessUnsupported(id) }

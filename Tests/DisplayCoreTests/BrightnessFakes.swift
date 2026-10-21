@@ -11,6 +11,7 @@ final class FakeBrightnessBackend: BrightnessBackend, @unchecked Sendable {
     var writeError: Error?
 
     private(set) var probeCount = 0
+    private(set) var shutDownCount = 0
     private(set) var writes: [(level: BrightnessLevel, id: CGDirectDisplayID)] = []
 
     init(
@@ -35,6 +36,8 @@ final class FakeBrightnessBackend: BrightnessBackend, @unchecked Sendable {
         writes.append((level, id))
         storedLevel = level
     }
+
+    func shutDown() { shutDownCount += 1 }
 }
 
 /// Gamma tables held in memory. Never touches a display.
@@ -141,4 +144,41 @@ final class FakeDDCLinks: DDCLinks, @unchecked Sendable {
 
     func link(for id: CGDirectDisplayID) -> (any DDCLink)? { links[id] }
     func configurationDidChange() { configurationChanges += 1 }
+}
+
+/// Runs queued work only when the test says so, and records requested delays.
+final class ManualExecutor: BrightnessExecutor, @unchecked Sendable {
+    private let lock = NSLock()
+    private var queued: [@Sendable () -> Void] = []
+    private(set) var delays: [Double] = []
+
+    func run(_ work: @escaping @Sendable () -> Void) {
+        lock.lock()
+        queued.append(work)
+        lock.unlock()
+    }
+
+    func run(afterSeconds delay: Double, _ work: @escaping @Sendable () -> Void) {
+        lock.lock()
+        delays.append(delay)
+        queued.append(work)
+        lock.unlock()
+    }
+
+    var pendingCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return queued.count
+    }
+
+    /// Runs what is queued right now. Work queued while running waits for the
+    /// next call, so a timer that re-arms itself cannot spin forever against a
+    /// clock the test has not advanced.
+    func runPending() {
+        lock.lock()
+        let batch = queued
+        queued.removeAll()
+        lock.unlock()
+        for work in batch { work() }
+    }
 }
