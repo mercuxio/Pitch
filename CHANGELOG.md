@@ -6,6 +6,17 @@ All notable changes to Pitch are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.2.5] — 2026-10-22
+
+### Fixed
+
+- An LG monitor that had slept stayed on software dimming even after Pitch asked
+  again. The monitor ignores the first DDC message it receives after being idle
+  and answers an empty "nothing to say" reply, so the brightness check never saw
+  a value. Pitch now sends each DDC message twice, 10 ms apart, which the monitor
+  answers straight away. This was the real cause behind 1.2.4's symptom; the
+  repeated checks added there stay, for monitors that are merely slow to wake.
+
 ## [1.2.4] — 2026-10-22
 
 ### Fixed

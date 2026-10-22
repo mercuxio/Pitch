@@ -184,10 +184,17 @@ public final class IOAVServiceLinks: DDCLinks, @unchecked Sendable {
 /// One monitor's I²C channel. Serialises its own transfers: a request is a write,
 /// a wait and a read, and another caller's frame in the middle would corrupt it.
 final class IOAVServiceLink: DDCLink, @unchecked Sendable {
-    /// How long a monitor is given to compose its reply. A starting value: on the
-    /// development machine the LG answered nothing at 40, 100, 250 or 500 ms, so
-    /// no delay has yet been shown to work.
+    /// How long a monitor is given to compose its reply.
     static let settleMicroseconds: UInt32 = 50_000
+
+    /// How many times a frame goes out, and the pause between copies. The LG
+    /// silently drops the first write of a transaction after it has been idle or
+    /// asleep: one Get-VCP is answered with a bare null message at every settle
+    /// time up to 500 ms, two 10 ms apart are answered at once. Both kinds of
+    /// frame are idempotent (a Get reads, a Set carries an absolute value), so
+    /// the repeat costs nothing when the first copy did arrive.
+    static let writeCycles = 2
+    static let writeGapMicroseconds: UInt32 = 10_000
 
     private let service: CFTypeRef
     private let write: IOAVServiceLinks.TransferFunction
@@ -206,15 +213,13 @@ final class IOAVServiceLink: DDCLink, @unchecked Sendable {
     func send(_ frame: [UInt8]) -> Int32 {
         lock.lock()
         defer { lock.unlock() }
-        var frame = frame
-        return write(service, DDC.chipAddress, DDC.dataAddress, &frame, UInt32(frame.count))
+        return transmit(frame)
     }
 
     func request(_ frame: [UInt8], replyLength: Int) -> (status: Int32, bytes: [UInt8]) {
         lock.lock()
         defer { lock.unlock() }
-        var frame = frame
-        let written = write(service, DDC.chipAddress, DDC.dataAddress, &frame, UInt32(frame.count))
+        let written = transmit(frame)
         guard written == 0 else { return (written, []) }
 
         usleep(Self.settleMicroseconds)
@@ -223,5 +228,16 @@ final class IOAVServiceLink: DDCLink, @unchecked Sendable {
         // and 0x51, so it cannot be told from that. 0x51 mirrors the write.
         let status = read(service, DDC.chipAddress, DDC.dataAddress, &reply, UInt32(replyLength))
         return (status, reply)
+    }
+
+    /// Caller holds `lock`. Stops at the first copy the bus refuses.
+    private func transmit(_ frame: [UInt8]) -> Int32 {
+        var frame = frame
+        for cycle in 0..<Self.writeCycles {
+            if cycle > 0 { usleep(Self.writeGapMicroseconds) }
+            let status = write(service, DDC.chipAddress, DDC.dataAddress, &frame, UInt32(frame.count))
+            if status != 0 { return status }
+        }
+        return 0
     }
 }
