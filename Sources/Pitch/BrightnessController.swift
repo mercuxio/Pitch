@@ -45,6 +45,10 @@ final class BrightnessController {
     private var failures: [CGDirectDisplayID: Error] = [:]
 
     private var generation = 0
+    /// How long after landing on software dimming to ask again for a better
+    /// mechanism. A monitor that has just woken can take tens of seconds to
+    /// answer DDC, and the first probe after wake is made half a second in.
+    private static let upgradeDelays: [TimeInterval] = [2, 5, 10, 20, 40]
     private var rewarm: DispatchWorkItem?
     /// A drag is under way. A rebuild now would replace the slider the user is
     /// holding.
@@ -110,6 +114,7 @@ final class BrightnessController {
         } else if let state = resolved[id], state.route.readable {
             resolve([id], invalidating: false)
         }
+        if resolved[id]?.route.method == .gamma { upgrade(id, thenRetryAs: nil) }
     }
 
     private func resolve(_ ids: [CGDirectDisplayID], invalidating: Bool) {
@@ -144,7 +149,11 @@ final class BrightnessController {
         guard generation == self.generation else { return }
 
         var changed = false
+        var newlyDimmed: [CGDirectDisplayID] = []
         for (id, state) in found {
+            if state.route.method == .gamma, resolved[id]?.route.method != .gamma {
+                newlyDimmed.append(id)
+            }
             var state = state
             // A refresh that could not read the level must not erase what the
             // user last set on this display.
@@ -161,6 +170,55 @@ final class BrightnessController {
         }
 
         if changed, !isInteracting { onChange() }
+        for id in newlyDimmed { scheduleUpgrade(of: id, attempt: 0) }
+    }
+
+    /// A display that fell to software dimming may only have lost its first
+    /// probe because the monitor was still waking, and the router would keep
+    /// that answer until the next reconfiguration. Asks again a few times,
+    /// further apart each time, and then stops: a monitor that never answers
+    /// is not worth probing for ever.
+    private func scheduleUpgrade(of id: CGDirectDisplayID, attempt: Int) {
+        guard attempt < Self.upgradeDelays.count else { return }
+        let started = generation
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.upgradeDelays[attempt]) {
+            [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.generation == started,
+                    self.resolved[id]?.route.method == .gamma
+                else { return }
+                // A drag is under way: a new route now would replace the
+                // slider being held. Try again on the next beat.
+                if self.isInteracting {
+                    self.scheduleUpgrade(of: id, attempt: attempt + 1)
+                } else {
+                    self.upgrade(id, thenRetryAs: attempt + 1)
+                }
+            }
+        }
+    }
+
+    /// Off the main thread, like every probe. `next` is the attempt to schedule
+    /// if nothing better answered; `nil` for a one-off try.
+    private func upgrade(_ id: CGDirectDisplayID, thenRetryAs next: Int?) {
+        let router = router
+        let started = generation
+
+        resolveQueue.async { [weak self] in
+            guard let route = router.upgrade(id) else {
+                Task { @MainActor in
+                    guard let self, self.generation == started, let next else { return }
+                    self.scheduleUpgrade(of: id, attempt: next)
+                }
+                return
+            }
+            let live = (try? router.level(for: id)) ?? nil
+            let state = Resolved(
+                route: route, level: live, writeOnly: !route.readable || live == nil)
+            Task { @MainActor in
+                self?.finishResolving([id: state], none: [], generation: started)
+            }
+        }
     }
 
     /// A display was attached, removed, resized or woken. Everything cached may

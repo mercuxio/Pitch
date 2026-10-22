@@ -129,6 +129,90 @@ private func router(_ backends: FakeBrightnessBackend...) -> BrightnessRouter {
     #expect(ddc.probeCount == 2)
 }
 
+// MARK: - Router: trying again for a better mechanism
+
+@Test func aDisplayThatFellToDimmingIsOfferedTheBetterBackendAgain() {
+    // The monitor was not ready when it was first probed (just after wake), so
+    // DDC said no and software dimming took the display.
+    let ddc = FakeBrightnessBackend(.ddc, probe: .unsupported)
+    let gamma = FakeBrightnessBackend(.gamma)
+    let r = router(ddc, gamma)
+    #expect(r.route(for: 1)?.method == .gamma)
+
+    ddc.probeResult = .supported(readable: true)
+    let upgraded = r.upgrade(1)
+
+    #expect(upgraded == BrightnessRoute(method: .ddc, readable: true))
+    #expect(r.route(for: 1)?.method == .ddc)
+}
+
+@Test func anUpgradeThatFindsNothingBetterLeavesTheRouteAlone() {
+    let ddc = FakeBrightnessBackend(.ddc, probe: .unsupported)
+    let gamma = FakeBrightnessBackend(.gamma)
+    let r = router(ddc, gamma)
+    _ = r.route(for: 1)
+
+    #expect(r.upgrade(1) == nil)
+    #expect(r.route(for: 1)?.method == .gamma)
+    // The backend in use is not probed again: only the ones preferred over it.
+    #expect(gamma.probeCount == 1)
+    #expect(ddc.probeCount == 2)
+}
+
+@Test func aDisplayOnItsFirstChoiceIsNeverProbedAgain() {
+    let apple = FakeBrightnessBackend(.appleDisplay)
+    let r = router(apple, FakeBrightnessBackend(.gamma))
+    _ = r.route(for: 1)
+
+    #expect(r.upgrade(1) == nil)
+    #expect(apple.probeCount == 1)
+}
+
+@Test func aDisplayWithNoRouteYetHasNothingToUpgrade() {
+    let ddc = FakeBrightnessBackend(.ddc)
+
+    #expect(router(ddc, FakeBrightnessBackend(.gamma)).upgrade(1) == nil)
+    #expect(ddc.probeCount == 0)
+}
+
+@Test func anUpgradeMakesBackendsAboveTheCurrentOneDropStaleState() {
+    // DDC caches which service belongs to which display; one built while the
+    // monitor was still waking would otherwise be asked again unchanged.
+    let ddc = FakeBrightnessBackend(.ddc, probe: .unsupported)
+    let gamma = FakeBrightnessBackend(.gamma)
+    let r = router(ddc, gamma)
+    _ = r.route(for: 1)
+
+    _ = r.upgrade(1)
+
+    #expect(ddc.configurationChangeCount == 1)
+    #expect(gamma.configurationChangeCount == 0)
+}
+
+@Test func aSuccessfulUpgradeReleasesTheDimmingItReplaced() {
+    let ddc = FakeBrightnessBackend(.ddc, probe: .unsupported)
+    let gamma = FakeBrightnessBackend(.gamma)
+    let r = router(ddc, gamma)
+    _ = r.route(for: 1)
+    ddc.probeResult = .supported(readable: true)
+
+    _ = r.upgrade(1)
+
+    // Left alone, a dimmed gamma table would stay on the screen with no slider
+    // that could undo it.
+    #expect(gamma.configurationChangeCount == 1)
+}
+
+@Test func anUpgradeLosesToAnInvalidationThatRacedIt() {
+    let ddc = FakeBrightnessBackend(.ddc, probe: .unsupported)
+    let r = router(ddc, FakeBrightnessBackend(.gamma))
+    _ = r.route(for: 1)
+    r.invalidate()
+
+    // The cache was cleared, so there is no route to improve on.
+    #expect(r.upgrade(1) == nil)
+}
+
 // MARK: - Write throttle
 
 @Test func theFirstWriteGoesOutImmediately() {

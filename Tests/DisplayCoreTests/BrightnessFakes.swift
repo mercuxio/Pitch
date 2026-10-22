@@ -12,6 +12,7 @@ final class FakeBrightnessBackend: BrightnessBackend, @unchecked Sendable {
 
     private(set) var probeCount = 0
     private(set) var shutDownCount = 0
+    private(set) var configurationChangeCount = 0
     private(set) var writes: [(level: BrightnessLevel, id: CGDirectDisplayID)] = []
 
     init(
@@ -37,6 +38,7 @@ final class FakeBrightnessBackend: BrightnessBackend, @unchecked Sendable {
         storedLevel = level
     }
 
+    func configurationDidChange() { configurationChangeCount += 1 }
     func shutDown() { shutDownCount += 1 }
 }
 

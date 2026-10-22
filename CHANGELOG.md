@@ -6,6 +6,17 @@ All notable changes to Pitch are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.2.4] — 2026-10-22
+
+### Fixed
+
+- After the computer slept, an external monitor could come back on software
+  dimming instead of its own brightness, and stay there. The first check after
+  wake is made before some monitors answer DDC, and the result was kept until
+  the next display change. Pitch now asks again at 2, 5, 10, 20 and 40 seconds,
+  and whenever the panel is opened, and switches to the monitor's own
+  brightness as soon as it answers.
+
 ## [1.2.3] — 2026-10-21
 
 ### Changed
